@@ -1,0 +1,2264 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>RUNG CHUÔNG VÀNG – Hóa Học 10 (Chương 2: Bảng Tuần Hoàn)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS cho kết nối Realtime thực tế qua Internet giữa Máy tính Giáo viên & Điện thoại Học sinh -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Font Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #091533;
+      --bg-panel: #11224d;
+      --bg-card: #19316b;
+      --gold: #f5b921;
+      --gold-light: #ffe07d;
+      --green: #16b86a;
+      --red: #e64545;
+    }
+    body.light-theme {
+      --bg-deep: #eef3fb;
+      --bg-panel: #ffffff;
+      --bg-card: #f1f5fd;
+      color: #0b1938;
+    }
+    * {
+      box-sizing: border-box;
+      font-family: 'Be Vietnam Pro', sans-serif;
+    }
+    body {
+      background-color: var(--bg-deep);
+      color: #ffffff;
+      margin: 0;
+      overflow-x: hidden;
+    }
+    .panel-glass {
+      background: var(--bg-panel);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+    }
+    body.light-theme .panel-glass {
+      border: 1px solid #cbd8ef;
+      box-shadow: 0 6px 20px rgba(15, 35, 80, 0.08);
+      color: #0b1938;
+    }
+    /* Thẻ học sinh trên sàn */
+    .student-tile {
+      transition: all 0.18s ease;
+      user-select: none;
+      cursor: pointer;
+    }
+    .student-tile:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.08);
+    }
+    .tile-fighting {
+      background: linear-gradient(135deg, #f5b921, #e09f0b);
+      color: #091533;
+      border: 2px solid #ffe58f;
+    }
+    .tile-submitted {
+      background: linear-gradient(135deg, #ffd659, #f5b921);
+      color: #091533;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.55);
+    }
+    .tile-correct {
+      background: linear-gradient(135deg, #18c973, #119655);
+      color: #ffffff;
+      border: 2px solid #88f7be;
+    }
+    .tile-eliminated {
+      background: linear-gradient(135deg, #d93838, #9e2121);
+      color: rgba(255, 255, 255, 0.85);
+      opacity: 0.72;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .tile-offline {
+      background: #1f325c;
+      color: #8ba3cf;
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+    }
+    /* Đồng hồ cảnh báo 5 giây cuối */
+    @keyframes pulseDanger {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(230, 69, 69, 0.7); }
+      100% { transform: scale(1.06); box-shadow: 0 0 28px 8px rgba(230, 69, 69, 0.35); }
+    }
+    .timer-danger {
+      border-color: #ef4444 !important;
+      color: #fca5a5 !important;
+      animation: pulseDanger 0.55s infinite alternate;
+    }
+    @keyframes bellSwing {
+      0% { transform: rotate(-14deg); }
+      100% { transform: rotate(14deg); }
+    }
+    .bell-animate {
+      display: inline-block;
+      transform-origin: top center;
+      animation: bellSwing 0.45s ease-in-out infinite alternate;
+    }
+    /* Thanh cuộn đẹp */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    ::-webkit-scrollbar-thumb { background: #3b5998; border-radius: 99px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ================= THANH HEADER CHÍNH ================= -->
+  <header class="panel-glass px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b-2 border-amber-400/40 z-30">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="text-3xl bell-animate" title="Rung Chuông Vàng">🔔</div>
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-xl md:text-2xl font-black tracking-wide text-amber-400 uppercase">RUNG CHUÔNG VÀNG</h1>
+          <span id="headerDatasetBadge" class="text-xs md:text-sm px-3 py-1 rounded-full bg-blue-950/90 text-blue-100 border border-blue-400/30 font-semibold">
+            Lớp 10 • Ôn tập Chương 2 – Bảng tuần hoàn (KNTT)
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chuyển đổi chế độ nhanh & Công cụ trình chiếu -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="bg-slate-900/80 p-1 rounded-xl border border-white/10 flex items-center gap-1">
+        <button id="tabTeacherBtn" onclick="switchAppMode('teacher')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 transition">
+          💻 Màn hình Giáo viên
+        </button>
+        <button id="tabStudentBtn" onclick="switchAppMode('student')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">
+          📱 Điện thoại Học sinh
+        </button>
+        <button id="tabSplitBtn" onclick="switchAppMode('split')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition" title="Xem đồng thời màn hình Giáo viên và Điện thoại Học sinh để kiểm thử">
+          ⚡ Chế độ Song song (Test)
+        </button>
+      </div>
+
+      <span id="headerRoomBadge" class="px-3.5 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs md:text-sm tracking-wider">
+        PHÒNG: H10A3
+      </span>
+
+      <button onclick="openModal('qrModal')" class="px-3 py-1.5 rounded-xl bg-blue-900/80 hover:bg-blue-800 text-xs font-bold border border-white/15 flex items-center gap-1">
+        <span>📷</span> Thẻ QR
+      </button>
+      <button onclick="toggleSound()" id="btnSoundToggle" class="px-3 py-1.5 rounded-xl bg-blue-900/80 hover:bg-blue-800 text-xs font-bold border border-white/15">
+        🔊 Âm thanh: Bật
+      </button>
+      <button onclick="document.body.classList.toggle('light-theme')" class="px-2.5 py-1.5 rounded-xl bg-blue-900/80 hover:bg-blue-800 text-xs font-bold border border-white/15" title="Đổi giao diện Sáng/Tối">
+        🌓
+      </button>
+      <button onclick="toggleFullScreen()" class="px-2.5 py-1.5 rounded-xl bg-blue-900/80 hover:bg-blue-800 text-xs font-bold border border-white/15" title="Toàn màn hình máy chiếu">
+        ⛶
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= KHUNG NỘI DUNG CHÍNH ================= -->
+  <main id="mainWorkspace" class="flex-1 grid grid-cols-1 gap-4 p-3 md:p-5">
+
+    <!-- ================= PHẦN 1: GIAO DIỆN MÁY TÍNH GIÁO VIÊN ================= -->
+    <section id="teacherWorkspace" class="flex flex-col lg:flex-row gap-4 w-full">
+      
+      <!-- Cột Trái + Trung tâm (Câu hỏi + Sàn thi đấu 48 HS + Điều khiển) -->
+      <div class="flex-1 flex flex-col gap-4">
+        
+        <!-- Khu vực Trung tâm: Trạng thái trận đấu + Câu hỏi + Hình minh họa SVG + Đồng hồ lớn -->
+        <div class="panel-glass rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
+          <div class="flex-1 w-full">
+            <div class="flex items-center gap-2 mb-2 flex-wrap">
+              <span id="tvStageTag" class="px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                SẴN SÀNG
+              </span>
+              <span id="tvQuestionTypeTag" class="text-xs text-blue-300 font-semibold"></span>
+              <span id="tvSyncStatus" class="text-xs text-emerald-400 font-semibold ml-auto">● Đồng bộ Realtime sẵn sàng</span>
+            </div>
+
+            <h2 id="tvQuestionTitle" class="text-xl md:text-2xl lg:text-3xl font-extrabold leading-snug mb-3">
+              Mời cả lớp lên sàn thi đấu!
+            </h2>
+            <p id="tvQuestionSub" class="text-sm text-blue-200/90 mb-3">
+              Tất cả 48 học sinh đang ở trên sàn. Giáo viên nhấn <b>“▶ Bắt đầu Câu 1”</b> để phát đề đồng loạt xuống điện thoại học sinh.
+            </p>
+
+            <!-- Khung hình ảnh / Bảng tuần hoàn trực quan đính kèm câu hỏi -->
+            <div id="tvVisualContainer" class="hidden my-3 p-3 rounded-xl bg-slate-950/75 border border-blue-400/30"></div>
+
+            <!-- Danh sách phương án trên màn hình máy chiếu -->
+            <div id="tvOptionsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-3"></div>
+
+            <!-- Giải thích chi tiết sau khi công bố đáp án -->
+            <div id="tvExplanationBox" class="hidden mt-4 p-3.5 rounded-xl bg-emerald-950/80 border-l-4 border-emerald-400 text-sm leading-relaxed"></div>
+          </div>
+
+          <!-- Đồng hồ đếm ngược tròn lớn chuẩn mẫu -->
+          <div class="flex flex-col items-center justify-center shrink-0">
+            <div id="tvTimerCircle" class="w-32 h-32 md:w-36 md:h-36 rounded-full border-[9px] border-amber-400 bg-slate-950/60 flex flex-col items-center justify-center shadow-[0_0_30px_rgba(245,185,33,0.28)] transition-all">
+              <span id="tvTimerNumber" class="text-4xl md:text-5xl font-black leading-none text-white">15</span>
+              <span class="text-[11px] font-bold tracking-widest text-amber-300 mt-1 uppercase">GIÂY</span>
+            </div>
+            <div id="tvLockStatusText" class="text-xs font-bold text-slate-300 mt-2">Đồng hồ máy chủ</div>
+          </div>
+        </div>
+
+        <!-- Khu vực Sàn Thi Đấu 48 Thẻ Học Sinh -->
+        <div class="panel-glass rounded-2xl p-4 flex-1 flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="text-sm md:text-base font-black text-amber-400 uppercase tracking-wide">SÀN THI ĐẤU (48 HỌC SINH)</h3>
+              <span class="text-xs text-slate-300">
+                Ô vàng: Đang trên sàn • Ô xanh: Trả lời đúng • Ô đỏ: Đã bị loại • Ô xám: Chưa vào (Bấm vào ô để Khôi phục / Xem lịch sử)
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input id="searchStudentInput" oninput="renderArenaGrid()" type="text" placeholder="🔍 Tìm tên HS..." class="px-3 py-1 rounded-lg bg-slate-950/80 border border-blue-400/30 text-xs text-white focus:outline-none focus:border-amber-400" />
+              <select id="filterArenaSelect" onchange="renderArenaGrid()" class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-blue-400/30 text-xs text-white">
+                <option value="all">Tất cả (48)</option>
+                <option value="alive">Còn trên sàn</option>
+                <option value="eliminated">Đã rời sàn</option>
+                <option value="answered">Đã gửi đáp án</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Lưới 8 cột x 6 hàng = 48 học sinh giống bố cục ảnh mẫu nhưng hiện đại hơn -->
+          <div id="arenaStudentsGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-2"></div>
+        </div>
+
+        <!-- Khu vực Điều Khiển Trận Đấu của Giáo viên -->
+        <div class="panel-glass rounded-2xl p-3.5 flex flex-col gap-2.5">
+          <!-- Hàng 1: Điều khiển luồng câu hỏi -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="tvFlowStepLabel" class="text-xs font-bold text-amber-300 px-2">Điều khiển:</span>
+            <button id="btnStartMatch" onclick="teacherStartQuestion(0)" class="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs md:text-sm shadow">
+              ▶ Bắt đầu Câu 1
+            </button>
+            <button id="btnPauseTimer" onclick="teacherPauseResume()" class="px-3.5 py-2 rounded-xl bg-blue-900/90 hover:bg-blue-800 text-white font-bold text-xs md:text-sm border border-white/15">
+              ⏸ Tạm dừng
+            </button>
+            <button id="btnLockQuestion" onclick="teacherLockQuestion()" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs md:text-sm">
+              🔒 Chốt câu
+            </button>
+            <button id="btnRevealAnswer" onclick="teacherRevealAnswer()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs md:text-sm">
+              ✔ Công bố đáp án
+            </button>
+            <button id="btnNextQuestion" onclick="teacherNextQuestion()" class="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs md:text-sm">
+              ⏭ Câu tiếp theo
+            </button>
+
+            <div class="flex items-center gap-1.5 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-white/15 text-xs">
+              <span>Số giây/câu:</span>
+              <input id="inputTimePerQ" type="number" min="5" max="120" value="15" onchange="updateDefaultTimeLimit(this.value)" class="w-14 bg-transparent text-amber-400 font-black text-center focus:outline-none" />
+            </div>
+
+            <button onclick="teacherRescueStudents()" class="px-3.5 py-2 rounded-xl bg-purple-700/90 hover:bg-purple-600 text-white font-bold text-xs md:text-sm border border-purple-300/30">
+              ✈️ Cứu trợ (còn <span id="rescueCountText">2</span>)
+            </button>
+          </div>
+
+          <!-- Hàng 2: Quản trị lớp, bộ đề, giả lập 48 HS, xuất báo cáo -->
+          <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+            <button onclick="createNewRoom()" class="px-3 py-1.5 rounded-xl bg-blue-950 hover:bg-blue-900 text-amber-300 font-bold text-xs border border-amber-400/30">
+              🔑 Tạo phòng mới & QR
+            </button>
+            <button onclick="simulateClassAnswers()" class="px-3 py-1.5 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs" title="Giả lập 48 học sinh trong lớp cùng gửi đáp án trên điện thoại để chạy thử">
+              🤖 Giả lập 48 HS trả lời
+            </button>
+            <button onclick="openModal('questionBankModal')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-white/10">
+              📝 Soạn đề (12 câu)
+            </button>
+            <button onclick="openModal('classRosterModal')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-white/10">
+              👥 Danh sách lớp
+            </button>
+            <button onclick="openModal('auditLogModal')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-white/10">
+              📋 Lịch sử & Nhật ký
+            </button>
+            <button onclick="exportReportCSV()" class="px-3 py-1.5 rounded-xl bg-emerald-800/90 hover:bg-emerald-700 text-xs font-bold border border-emerald-400/30">
+              📥 Xuất báo cáo Excel/CSV
+            </button>
+            <button onclick="teacherFinishGame()" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-400/40">
+              🏆 Kết thúc & Rung chuông
+            </button>
+            <button onclick="teacherResetGame()" class="px-3 py-1.5 rounded-xl bg-rose-900/60 hover:bg-rose-800 text-rose-200 font-bold text-xs ml-auto">
+              🔄 Chơi lại
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cột Phải: Thống kê trực tiếp + Thang 12 câu hỏi Chuông Vàng -->
+      <div class="w-full lg:w-72 xl:w-80 flex flex-col gap-4 shrink-0">
+        
+        <!-- Thẻ thống kê số học sinh trên sàn -->
+        <div class="panel-glass rounded-2xl p-4 text-center">
+          <div class="text-xs font-extrabold uppercase tracking-widest text-amber-400">TRÊN SÀN THI ĐẤU</div>
+          <div class="text-4xl md:text-5xl font-black my-1 text-white">
+            <span id="statAliveCount">48</span><span class="text-2xl text-slate-400">/<span id="statTotalCount">48</span></span>
+          </div>
+          <div id="statSubSummary" class="text-xs text-blue-200 mb-3">Tất cả 48 học sinh đang trên sàn</div>
+
+          <div class="grid grid-cols-2 gap-2 text-left text-xs">
+            <div class="bg-slate-950/60 p-2 rounded-xl border border-white/10">
+              <div class="text-slate-400">Trả lời đúng</div>
+              <div id="statCorrectNow" class="text-lg font-black text-emerald-400">0</div>
+            </div>
+            <div class="bg-slate-950/60 p-2 rounded-xl border border-white/10">
+              <div class="text-slate-400">Trả lời sai</div>
+              <div id="statWrongNow" class="text-lg font-black text-rose-400">0</div>
+            </div>
+            <div class="bg-slate-950/60 p-2 rounded-xl border border-white/10">
+              <div class="text-slate-400">Chưa trả lời</div>
+              <div id="statUnansweredNow" class="text-lg font-black text-amber-300">48</div>
+            </div>
+            <div class="bg-slate-950/60 p-2 rounded-xl border border-white/10">
+              <div class="text-slate-400">Đã bị loại</div>
+              <div id="statEliminatedTotal" class="text-lg font-black text-slate-300">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng Thang 12 Câu Hỏi Chuông Vàng -->
+        <div class="panel-glass rounded-2xl p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-center gap-1.5 text-amber-400 font-black text-sm uppercase tracking-wider mb-3">
+              <span>🔔</span> THANG 12 CÂU CHUÔNG VÀNG
+            </div>
+            <div id="goldenLadderList" class="flex flex-col-reverse gap-1.5"></div>
+          </div>
+
+          <div class="mt-4 p-3 rounded-xl bg-purple-950/50 border border-purple-400/30 text-xs text-purple-100">
+            <div class="font-bold text-purple-300 mb-0.5">🛟 Quy tắc Cứu trợ & Chiến thắng:</div>
+            Khi trên sàn còn ít học sinh hoặc cả lớp bị loại hết, Giáo viên có thể dùng <b>Cứu trợ máy bay giấy</b> để đưa học sinh trở lại sàn. Vượt qua Câu 12 sẽ Rung Chuông Vàng!
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PHẦN 2: GIAO DIỆN ĐIỆN THOẠI HỌC SINH ================= -->
+    <section id="studentWorkspace" class="hidden w-full max-w-md mx-auto">
+      <div class="panel-glass rounded-3xl p-5 border-2 border-amber-400/40 flex flex-col gap-4">
+        
+        <!-- Header Điện thoại -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🔔</span>
+            <div>
+              <div class="text-sm font-black text-amber-400">RUNG CHUÔNG VÀNG</div>
+              <div id="mobileRoomStatus" class="text-[11px] text-emerald-400 font-semibold">● Đã đồng bộ phòng thi</div>
+            </div>
+          </div>
+          <span id="mobileRoomCodePill" class="px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs">H10A3</span>
+        </div>
+
+        <!-- Màn hình 1: Học sinh Đăng nhập chọn tên vào sàn -->
+        <div id="mobileJoinScreen" class="flex flex-col gap-3">
+          <div class="text-center py-2">
+            <h3 class="text-lg font-black text-white">THAM GIA SÀN THI ĐẤU</h3>
+            <p class="text-xs text-slate-300 mt-1">Quét QR hoặc chọn đúng tên của em trong danh sách lớp</p>
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-amber-300 block mb-1">Mã phòng thi:</label>
+            <input id="mobileInputRoom" type="text" value="H10A3" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-blue-400/40 text-white font-black uppercase tracking-wider text-center" />
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-amber-300 block mb-1">Chọn tên học sinh (Lớp 10A3 - 48 HS):</label>
+            <select id="mobileSelectStudent" onchange="onMobileSelectStudentChange()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-blue-400/40 text-white text-sm font-semibold"></select>
+          </div>
+
+          <div id="mobileCustomNameBox" class="hidden flex-col gap-2">
+            <input id="mobileInputCustomName" type="text" placeholder="Nhập họ và tên của em..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-blue-400/40 text-white text-sm" />
+            <input id="mobileInputCustomClass" type="text" value="10A3" placeholder="Lớp (VD: 10A3)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-blue-400/40 text-white text-sm" />
+          </div>
+
+          <button onclick="studentConfirmJoin()" class="w-full py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-base shadow-lg mt-2">
+            🚀 VÀO SÀN THI ĐẤU
+          </button>
+          <p id="mobileJoinError" class="text-xs text-rose-400 text-center font-bold"></p>
+        </div>
+
+        <!-- Màn hình 2: Giao diện làm bài trên điện thoại -->
+        <div id="mobileGameScreen" class="hidden flex-col gap-3.5">
+          <!-- Thông tin thí sinh -->
+          <div class="bg-slate-950/80 p-3 rounded-2xl border border-white/10 flex items-center justify-between">
+            <div>
+              <div id="mobilePlayerName" class="font-black text-sm text-white">Nguyễn Văn An</div>
+              <div id="mobilePlayerStatusBadge" class="text-xs font-bold text-amber-400">● Đang thi đấu trên sàn</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-slate-400">Số câu đúng</div>
+              <div id="mobilePlayerScore" class="text-xl font-black text-emerald-400">0</div>
+            </div>
+          </div>
+
+          <!-- Nội dung câu hỏi & nút bấm lớn trên điện thoại -->
+          <div id="mobileQuestionCard" class="bg-slate-950/60 p-4 rounded-2xl border border-white/10 flex flex-col gap-3"></div>
+
+          <button onclick="studentSwitchAccount()" class="text-xs text-slate-400 underline text-center pt-1">
+            Đổi học sinh khác (Kiểm thử nhiều máy)
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODAL 1: MÃ QR & ĐƯỜNG DẪN THAM GIA PHÒNG THI ================= -->
+  <div id="qrModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="panel-glass rounded-3xl max-w-xl w-full p-6 border-2 border-amber-400 text-center max-h-[94vh] overflow-y-auto">
+      <div class="text-xs font-black uppercase tracking-widest text-amber-400 mb-1">THAM GIA PHÒNG THI TRỰC TUYẾN</div>
+      <h2 id="qrModalRoomCode" class="text-2xl md:text-3xl font-black text-white mb-2">MÃ PHÒNG: H10A3</h2>
+
+      <!-- Cảnh báo thông minh khi đang chạy trong môi trường xem trước nội bộ (iframe/blob) -->
+      <div id="sandboxUrlNotice" class="hidden mb-3 p-3 rounded-2xl bg-amber-500/15 border border-amber-400/50 text-left text-xs text-amber-100 leading-relaxed">
+        <div class="font-black text-amber-300 mb-1">⚠️ Lưu ý quan trọng để Điện thoại Học sinh quét được QR:</div>
+        Hiện tại ứng dụng đang mở trong khung xem trước nội bộ nên điện thoại bên ngoài chưa truy cập trực tiếp được địa chỉ này.
+        <div class="mt-1.5 flex flex-wrap gap-2">
+          <button onclick="downloadStandaloneApp()" class="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs shadow">
+            ⬇ Bấm tải file HTML về máy / Đưa lên Web
+          </button>
+          <span class="text-[11px] text-slate-300 self-center">hoặc dán đường dẫn Web/LAN của thầy vào ô dưới đây:</span>
+        </div>
+      </div>
+
+      <!-- Ô cho phép Giáo viên nhập hoặc chỉnh URL máy chủ / đường dẫn Web thực tế -->
+      <div class="mb-3 text-left">
+        <label class="text-[11px] font-bold text-blue-200 block mb-1">
+          🌐 Đường dẫn gốc tạo mã QR (Tự động nhận diện hoặc dán link Web/IP mạng LAN của Giáo viên):
+        </label>
+        <div class="flex gap-1.5">
+          <input id="customHostUrlInput" type="text" oninput="onCustomHostUrlInput()" placeholder="Ví dụ: https://lophoa10.netlify.app hoặc http://192.168.1.10:5500/index.html" class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-blue-400/40 text-xs text-white font-mono focus:outline-none focus:border-amber-400" />
+          <button onclick="resetDefaultHostUrl()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 shrink-0" title="Lấy lại địa chỉ trang hiện tại">
+            Mặc định
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl inline-block mx-auto shadow-xl border-4 border-amber-400">
+        <div id="qrcodeCanvas" class="flex items-center justify-center min-w-[220px] min-h-[220px]"></div>
+      </div>
+
+      <p class="text-xs text-slate-300 mt-3">
+        Đường dẫn trực tiếp nhúng trong mã QR (Bấm vào link để mở ngay hoặc sao chép gửi qua Zalo lớp):
+      </p>
+
+      <div class="mt-2 p-2.5 rounded-xl bg-slate-950 border border-amber-400/40 flex items-center justify-between gap-2">
+        <a id="qrJoinUrlLink" href="#" target="_blank" rel="noopener noreferrer" class="text-amber-300 hover:text-amber-200 underline font-mono text-xs break-all text-left flex-1">
+          Đang tạo đường dẫn...
+        </a>
+        <button onclick="openStudentTabDirectly()" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] shrink-0">
+          ↗ Mở thử ngay
+        </button>
+      </div>
+
+      <!-- Thông báo trạng thái sao chép / kết nối -->
+      <div id="qrActionFeedback" class="hidden mt-2 py-1.5 px-3 rounded-xl bg-emerald-900/70 border border-emerald-400 text-emerald-200 text-xs font-bold"></div>
+
+      <div class="flex flex-wrap justify-center gap-2 mt-4">
+        <button onclick="copyRoomLink()" class="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow">
+          📋 Sao chép đường dẫn
+        </button>
+        <button onclick="downloadQRImage()" class="px-3.5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs">
+          🖼 Tải ảnh QR
+        </button>
+        <button onclick="switchAppMode('split'); closeModal('qrModal')" class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs">
+          📱 Mở Điện thoại Học sinh kế bên
+        </button>
+        <button onclick="closeModal('qrModal')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 2: CHI TIẾT HỌC SINH & KHÔI PHỤC KỸ THUẬT ================= -->
+  <div id="studentDetailModal" class="fixed inset-0 bg-slate-950/85 hidden items-center justify-center z-50 p-4">
+    <div class="panel-glass rounded-3xl max-w-md w-full p-6 border-2 border-amber-400">
+      <h3 id="modalStTitle" class="text-xl font-black text-amber-400 mb-1"></h3>
+      <p id="modalStSub" class="text-xs text-slate-300 mb-3"></p>
+
+      <div class="text-xs font-bold text-amber-300 mb-1">Lịch sử trả lời các câu:</div>
+      <div id="modalStHistory" class="max-h-44 overflow-y-auto bg-slate-950/80 p-3 rounded-xl border border-white/10 text-xs space-y-1.5 mb-4"></div>
+
+      <label class="text-xs font-bold text-slate-300 block mb-1">Lý do khôi phục / thay đổi trạng thái (Lưu vào Nhật ký):</label>
+      <input id="modalRestoreReason" type="text" value="Sự cố mất kết nối mạng trên điện thoại" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-blue-400/40 text-xs text-white mb-4" />
+
+      <div class="flex flex-wrap justify-between gap-2">
+        <button onclick="confirmToggleStudentArena()" class="px-4 py-2 rounded-xl bg-amber-400 text-slate-950 font-black text-xs">
+          ⚡ Đổi trạng thái: Trên sàn / Loại
+        </button>
+        <button onclick="closeModal('studentDetailModal')" class="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 3: NGÂN HÀNG 12 CÂU HỎI HÓA 10 (CHƯƠNG 2) ================= -->
+  <div id="questionBankModal" class="fixed inset-0 bg-slate-950/85 hidden items-center justify-center z-50 p-4">
+    <div class="panel-glass rounded-3xl max-w-4xl w-full p-6 border-2 border-amber-400 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <div>
+          <h3 class="text-xl font-black text-amber-400">NGÂN HÀNG 12 CÂU HỎI ÔN TẬP CHƯƠNG 2 – HÓA HỌC 10 (KNTT)</h3>
+          <p class="text-xs text-slate-300">Phân hóa từ Dễ đến Khó (Nhận biết → Thông hiểu → Vận dụng). Giáo viên có thể chỉnh sửa hoặc thêm mới.</p>
+        </div>
+        <button onclick="closeModal('questionBankModal')" class="px-3 py-1 rounded-lg bg-slate-800 text-xs font-bold">✕ Đóng</button>
+      </div>
+
+      <div id="questionBankList" class="flex-1 overflow-y-auto my-4 space-y-3 pr-1"></div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-white/10">
+        <button onclick="addNewBlankQuestion()" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs">
+          + Thêm câu hỏi
+        </button>
+        <button onclick="saveQuestionBankChanges()" class="px-5 py-2 rounded-xl bg-amber-400 text-slate-950 font-black text-xs">
+          💾 Lưu bộ câu hỏi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 4: QUẢN LÝ DANH SÁCH LỚP ================= -->
+  <div id="classRosterModal" class="fixed inset-0 bg-slate-950/85 hidden items-center justify-center z-50 p-4">
+    <div class="panel-glass rounded-3xl max-w-2xl w-full p-6 border-2 border-amber-400 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h3 class="text-xl font-black text-amber-400">QUẢN LÝ LỚP HỌC & NHẬP EXCEL/CSV</h3>
+        <button onclick="closeModal('classRosterModal')" class="px-3 py-1 rounded-lg bg-slate-800 text-xs font-bold">✕</button>
+      </div>
+
+      <p class="text-xs text-slate-300 my-2">
+        Mỗi dòng 1 học sinh theo cú pháp: <code>Họ và tên, Lớp</code>. Hệ thống tự động đánh số thứ tự từ 1 đến hết lớp.
+      </p>
+      <textarea id="rosterTextarea" rows="12" class="w-full p-3 rounded-xl bg-slate-950 border border-blue-400/40 text-xs text-white font-mono"></textarea>
+
+      <div class="flex justify-end gap-2 mt-4">
+        <button onclick="applyRosterFromText()" class="px-5 py-2 rounded-xl bg-amber-400 text-slate-950 font-black text-xs">
+          💾 Cập nhật danh sách lớp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 5: NHẬT KÝ KHÔI PHỤC & LỊCH SỬ TRẬN ĐẤU ================= -->
+  <div id="auditLogModal" class="fixed inset-0 bg-slate-950/85 hidden items-center justify-center z-50 p-4">
+    <div class="panel-glass rounded-3xl max-w-3xl w-full p-6 border-2 border-amber-400 max-h-[88vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h3 class="text-xl font-black text-amber-400">LỊCH SỬ TRẬN ĐẤU & NHẬT KÝ KHÔI PHỤC HỌC SINH</h3>
+        <button onclick="closeModal('auditLogModal')" class="px-3 py-1 rounded-lg bg-slate-800 text-xs font-bold">✕</button>
+      </div>
+      <div id="auditLogContent" class="flex-1 overflow-y-auto my-4 space-y-2 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 6: MÀN HÌNH VINH DANH RUNG CHUÔNG VÀNG ================= -->
+  <div id="victoryModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+    <div class="panel-glass rounded-3xl max-w-xl w-full p-8 border-4 border-amber-400 text-center relative overflow-hidden">
+      <div class="text-7xl bell-animate mb-3">🔔</div>
+      <div class="text-xs font-black uppercase tracking-widest text-amber-300">VINH DANH NHÀ VÔ ĐỊCH TRI THỨC</div>
+      <h2 id="victoryHeadline" class="text-3xl font-black text-amber-400 my-2">RUNG CHUÔNG VÀNG!</h2>
+      <p id="victoryDescription" class="text-sm text-blue-100 mb-5"></p>
+
+      <div id="victoryWinnersContainer" class="space-y-2.5 max-h-60 overflow-y-auto mb-6"></div>
+
+      <div class="flex flex-wrap justify-center gap-3">
+        <button onclick="playGoldenBellChime()" class="px-5 py-2.5 rounded-2xl bg-amber-400 text-slate-950 font-black text-sm shadow-lg">
+          🔔 Ngân vang Chuông Vàng
+        </button>
+        <button onclick="exportReportCSV()" class="px-5 py-2.5 rounded-2xl bg-emerald-600 text-white font-bold text-sm">
+          📥 Xuất Báo Cáo Kết Quả
+        </button>
+        <button onclick="closeModal('victoryModal')" class="px-4 py-2.5 rounded-2xl bg-slate-800 text-white font-bold text-sm">
+          Xem Sàn Thi Đấu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= HỘP THÔNG BÁO & XÁC NHẬN HIỆN ĐẠI (THAY THẾ ALERT/CONFIRM) ================= -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-[100] hidden max-w-sm px-4 py-3 rounded-2xl bg-slate-900/95 border-2 border-amber-400 text-white text-xs font-bold shadow-2xl items-center gap-2.5">
+    <span id="toastIcon" class="text-lg">🔔</span>
+    <span id="toastMessage" class="leading-snug"></span>
+  </div>
+
+  <div id="confirmDialogModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm hidden items-center justify-center z-[95] p-4">
+    <div class="panel-glass rounded-3xl max-w-md w-full p-6 border-2 border-amber-400 text-center">
+      <div class="text-4xl mb-2">🔔</div>
+      <h3 class="text-lg font-black text-amber-400 mb-2">XÁC NHẬN THAO TÁC</h3>
+      <p id="confirmDialogMessage" class="text-sm text-slate-200 mb-5 leading-relaxed"></p>
+      <div class="flex justify-center gap-3">
+        <button id="confirmDialogYesBtn" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs">
+          ✔ Đồng ý
+        </button>
+        <button onclick="closeConfirmDialog()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">
+          Hủy bỏ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT LOGIC TOÀN HỆ THỐNG ================= -->
+  <script>
+    // Hộp thông báo nổi & Xác nhận tương thích mọi khung trình duyệt (Không dùng alert/confirm)
+    let toastTimer = null;
+    function showToast(message, icon = '🔔') {
+      const box = document.getElementById('toastNotification');
+      document.getElementById('toastIcon').innerText = icon;
+      document.getElementById('toastMessage').innerText = message;
+      box.classList.remove('hidden');
+      box.classList.add('flex');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        box.classList.add('hidden');
+        box.classList.remove('flex');
+      }, 3600);
+    }
+
+    let pendingConfirmCallback = null;
+    function askConfirmation(message, onConfirm) {
+      pendingConfirmCallback = onConfirm;
+      document.getElementById('confirmDialogMessage').innerText = message;
+      const modal = document.getElementById('confirmDialogModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.getElementById('confirmDialogYesBtn').onclick = () => {
+        const cb = pendingConfirmCallback;
+        closeConfirmDialog();
+        if (cb) cb();
+      };
+    }
+
+    function closeConfirmDialog() {
+      const modal = document.getElementById('confirmDialogModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      pendingConfirmCallback = null;
+    }
+
+    // 1. HÌNH ẢNH BẢNG TUẦN HOÀN RÚT GỌN (SVG TRỰC QUAN CHO CÂU HỎI HÓA 10)
+    const PERIODIC_TABLE_SVG = `
+      <div class="text-center">
+        <div class="text-xs font-bold text-amber-300 mb-2">BẢNG TUẦN HOÀN RÚT GỌN (CÁC NGUYÊN TỐ NHÓM A - CHU KÌ 1, 2, 3, 4)</div>
+        <svg viewBox="0 0 680 210" class="w-full max-w-2xl mx-auto rounded-lg">
+          <style>
+            .cell { stroke: #334155; stroke-width: 1.5; rx: 6px; }
+            .c-s { fill: #1e3a8a; }
+            .c-p { fill: #065f46; }
+            .c-noble { fill: #581c87; }
+            .txt-z { fill: #93c5fd; font-size: 10px; font-weight: 700; }
+            .txt-sym { fill: #ffffff; font-size: 15px; font-weight: 900; }
+            .txt-grp { fill: #fbbf24; font-size: 11px; font-weight: 800; text-anchor: middle; }
+          </style>
+          <!-- Tiêu đề Nhóm -->
+          <text x="65" y="18" class="txt-grp">IA</text>
+          <text x="140" y="18" class="txt-grp">IIA</text>
+          <text x="215" y="18" class="txt-grp">IIIA</text>
+          <text x="290" y="18" class="txt-grp">IVA</text>
+          <text x="365" y="18" class="txt-grp">VA</text>
+          <text x="440" y="18" class="txt-grp">VIA</text>
+          <text x="515" y="18" class="txt-grp">VIIA</text>
+          <text x="590" y="18" class="txt-grp">VIIIA</text>
+
+          <!-- Chu kì 1 -->
+          <text x="15" y="52" class="txt-grp">CK 1</text>
+          <rect x="35" y="28" width="60" height="38" class="cell c-s"/><text x="40" y="40" class="txt-z">1</text><text x="58" y="55" class="txt-sym">H</text>
+          <rect x="560" y="28" width="60" height="38" class="cell c-noble"/><text x="565" y="40" class="txt-z">2</text><text x="580" y="55" class="txt-sym">He</text>
+
+          <!-- Chu kì 2 -->
+          <text x="15" y="95" class="txt-grp">CK 2</text>
+          <rect x="35" y="71" width="60" height="38" class="cell c-s"/><text x="40" y="83" class="txt-z">3</text><text x="58" y="98" class="txt-sym">Li</text>
+          <rect x="110" y="71" width="60" height="38" class="cell c-s"/><text x="115" y="83" class="txt-z">4</text><text x="130" y="98" class="txt-sym">Be</text>
+          <rect x="185" y="71" width="60" height="38" class="cell c-p"/><text x="190" y="83" class="txt-z">5</text><text x="208" y="98" class="txt-sym">B</text>
+          <rect x="260" y="71" width="60" height="38" class="cell c-p"/><text x="265" y="83" class="txt-z">6</text><text x="283" y="98" class="txt-sym">C</text>
+          <rect x="335" y="71" width="60" height="38" class="cell c-p"/><text x="340" y="83" class="txt-z">7</text><text x="358" y="98" class="txt-sym">N</text>
+          <rect x="410" y="71" width="60" height="38" class="cell c-p"/><text x="415" y="83" class="txt-z">8</text><text x="433" y="98" class="txt-sym">O</text>
+          <rect x="485" y="71" width="60" height="38" class="cell c-p"/><text x="490" y="83" class="txt-z">9</text><text x="508" y="98" class="txt-sym">F</text>
+          <rect x="560" y="71" width="60" height="38" class="cell c-noble"/><text x="565" y="83" class="txt-z">10</text><text x="580" y="98" class="txt-sym">Ne</text>
+
+          <!-- Chu kì 3 -->
+          <text x="15" y="138" class="txt-grp">CK 3</text>
+          <rect x="35" y="114" width="60" height="38" class="cell c-s"/><text x="40" y="126" class="txt-z">11</text><text x="55" y="141" class="txt-sym">Na</text>
+          <rect x="110" y="114" width="60" height="38" class="cell c-s"/><text x="115" y="126" class="txt-z">12</text><text x="128" y="141" class="txt-sym">Mg</text>
+          <rect x="185" y="114" width="60" height="38" class="cell c-p"/><text x="190" y="126" class="txt-z">13</text><text x="206" y="141" class="txt-sym">Al</text>
+          <rect x="260" y="114" width="60" height="38" class="cell c-p"/><text x="265" y="126" class="txt-z">14</text><text x="282" y="141" class="txt-sym">Si</text>
+          <rect x="335" y="114" width="60" height="38" class="cell c-p"/><text x="340" y="126" class="txt-z">15</text><text x="358" y="141" class="txt-sym">P</text>
+          <rect x="410" y="114" width="60" height="38" class="cell c-p"/><text x="415" y="126" class="txt-z">16</text><text x="433" y="141" class="txt-sym">S</text>
+          <rect x="485" y="114" width="60" height="38" class="cell c-p"/><text x="490" y="126" class="txt-z">17</text><text x="506" y="141" class="txt-sym">Cl</text>
+          <rect x="560" y="114" width="60" height="38" class="cell c-noble"/><text x="565" y="126" class="txt-z">18</text><text x="580" y="141" class="txt-sym">Ar</text>
+
+          <!-- Chu kì 4 -->
+          <text x="15" y="181" class="txt-grp">CK 4</text>
+          <rect x="35" y="157" width="60" height="38" class="cell c-s"/><text x="40" y="169" class="txt-z">19</text><text x="58" y="184" class="txt-sym">K</text>
+          <rect x="110" y="157" width="60" height="38" class="cell c-s"/><text x="115" y="169" class="txt-z">20</text><text x="130" y="184" class="txt-sym">Ca</text>
+          <rect x="410" y="157" width="60" height="38" class="cell c-p"/><text x="415" y="169" class="txt-z">34</text><text x="430" y="184" class="txt-sym">Se</text>
+          <rect x="485" y="157" width="60" height="38" class="cell c-p"/><text x="490" y="169" class="txt-z">35</text><text x="506" y="184" class="txt-sym">Br</text>
+        </svg>
+      </div>
+    `;
+
+    // 2. BỘ 12 CÂU HỎI CHUẨN SGK HÓA HỌC 10 – CHƯƠNG 2 (KẾT NỐI TRI THỨC)
+    const DEFAULT_QUESTIONS = [
+      {
+        order: 1,
+        type: 'mcq',
+        level: 'Mức 1 • Nhận biết',
+        timeLimit: 15,
+        hasVisual: false,
+        content: 'Trong bảng tuần hoàn các nguyên tố hóa học hiện đại, các nguyên tố được sắp xếp theo nguyên tắc nào sau đây?',
+        options: [
+          'A. Theo chiều tăng dần của nguyên tử khối trung bình.',
+          'B. Theo chiều tăng dần của điện tích hạt nhân nguyên tử.',
+          'C. Các nguyên tố có cùng số lớp electron được xếp thành một cột.',
+          'D. Các nguyên tố có cùng số electron hóa trị được xếp thành một hàng.'
+        ],
+        correctAnswers: ['B'],
+        strictChem: false,
+        explanation: 'Theo SGK Hóa học 10 (Bài 5 - Trang 31): Các nguyên tố được sắp xếp theo chiều tăng dần của điện tích hạt nhân nguyên tử; cùng số lớp electron xếp thành một hàng (chu kì), cùng số electron hóa trị xếp thành một cột (nhóm).'
+      },
+      {
+        order: 2,
+        type: 'number',
+        level: 'Mức 1 • Nhận biết',
+        timeLimit: 15,
+        hasVisual: false,
+        content: 'Bảng tuần hoàn các nguyên tố hóa học hiện nay gồm có bao nhiêu chu kì? (Nhập đáp án bằng số nguyên)',
+        options: [],
+        correctAnswers: ['7'],
+        strictChem: false,
+        explanation: 'Bảng tuần hoàn hiện nay gồm 7 chu kì (đánh số từ 1 đến 7). Số thứ tự của chu kì bằng số lớp electron của nguyên tử các nguyên tố trong chu kì đó.'
+      },
+      {
+        order: 3,
+        type: 'mcq',
+        level: 'Mức 1 • Nhận biết',
+        timeLimit: 15,
+        hasVisual: true,
+        content: 'Quan sát bảng tuần hoàn rút gọn, cho biết Chu kì 3 gồm bao nhiêu nguyên tố hóa học?',
+        options: [
+          'A. 2 nguyên tố',
+          'B. 8 nguyên tố',
+          'C. 18 nguyên tố',
+          'D. 32 nguyên tố'
+        ],
+        correctAnswers: ['B'],
+        strictChem: false,
+        explanation: 'Chu kì 3 là chu kì nhỏ, gồm 8 nguyên tố từ Sodium (Na, Z=11) đến Argon (Ar, Z=18), tất cả đều có 3 lớp electron.'
+      },
+      {
+        order: 4,
+        type: 'tf',
+        level: 'Mức 1 • Nhận biết',
+        timeLimit: 15,
+        hasVisual: true,
+        content: 'Xét nhận định sau: "Các nguyên tố thuộc nhóm IA và nhóm IIA (trừ H, He) đều thuộc khối nguyên tố s". Nhận định này Đúng hay Sai?',
+        options: ['Đúng', 'Sai'],
+        correctAnswers: ['Đúng'],
+        strictChem: false,
+        explanation: 'Chính xác! Nguyên tử các nguyên tố nhóm IA (ns¹) và IIA (ns²) có electron cuối cùng điền vào phân lớp s nên là các nguyên tố s.'
+      },
+      {
+        order: 5,
+        type: 'mcq',
+        level: 'Mức 2 • Thông hiểu',
+        timeLimit: 20,
+        hasVisual: true,
+        content: 'Nguyên tử của nguyên tố Magnesium (Mg) có số hiệu nguyên tử Z = 12 (cấu hình electron: 1s²2s²2p⁶3s²). Vị trí của Mg trong bảng tuần hoàn là:',
+        options: [
+          'A. Ô 12, chu kì 2, nhóm IIA',
+          'B. Ô 12, chu kì 3, nhóm IIA',
+          'C. Ô 12, chu kì 3, nhóm IIB',
+          'D. Ô 12, chu kì 2, nhóm IIIA'
+        ],
+        correctAnswers: ['B'],
+        strictChem: false,
+        explanation: 'Mg có Z = 12 → Ô số 12; có 3 lớp electron → Chu kì 3; có 2 electron lớp ngoài cùng và là nguyên tố s → Nhóm IIA.'
+      },
+      {
+        order: 6,
+        type: 'mcq',
+        level: 'Mức 2 • Thông hiểu',
+        timeLimit: 20,
+        hasVisual: false,
+        content: 'Trong một chu kì, khi đi từ trái sang phải theo chiều tăng dần của điện tích hạt nhân, xu hướng biến đổi nào sau đây là ĐÚNG?',
+        options: [
+          'A. Bán kính nguyên tử tăng dần, độ âm điện giảm dần.',
+          'B. Bán kính nguyên tử giảm dần, độ âm điện tăng dần.',
+          'C. Tính kim loại tăng dần, tính phi kim giảm dần.',
+          'D. Bán kính nguyên tử và độ âm điện đều tăng dần.'
+        ],
+        correctAnswers: ['B'],
+        strictChem: false,
+        explanation: 'Trong một chu kì, số lớp electron không đổi nhưng điện tích hạt nhân tăng nên lực hút giữa hạt nhân với các electron lớp ngoài cùng tăng → Bán kính nguyên tử giảm dần và độ âm điện tăng dần.'
+      },
+      {
+        order: 7,
+        type: 'mcq',
+        level: 'Mức 2 • Thông hiểu',
+        timeLimit: 15,
+        hasVisual: true,
+        content: 'Trong các nguyên tố O (Z=8), F (Z=9), Cl (Z=17), Se (Z=34), nguyên tố có tính phi kim mạnh nhất là:',
+        options: [
+          'A. Oxygen (O)',
+          'B. Fluorine (F)',
+          'C. Selenium (Se)',
+          'D. Chlorine (Cl)'
+        ],
+        correctAnswers: ['B'],
+        strictChem: false,
+        explanation: 'Fluorine (F) nằm ở cuối chu kì 2, đầu nhóm VIIA, có độ âm điện lớn nhất bảng tuần hoàn (3,98) và là phi kim mạnh nhất.'
+      },
+      {
+        order: 8,
+        type: 'short',
+        level: 'Mức 2 • Thông hiểu',
+        timeLimit: 20,
+        hasVisual: false,
+        content: 'Nguyên tố Sulfur (S) nằm ở chu kì 3, nhóm VIA. Hãy nhập công thức hóa học của oxide ứng với hóa trị cao nhất của Sulfur (viết liền, ví dụ: CO2):',
+        options: [],
+        correctAnswers: ['SO3'],
+        strictChem: true,
+        explanation: 'Sulfur thuộc nhóm VIA nên có hóa trị cao nhất với oxygen là VI → Công thức oxide cao nhất là SO₃ (sulfur trioxide - một acidic oxide).'
+      },
+      {
+        order: 9,
+        type: 'mcq',
+        level: 'Mức 3 • Vận dụng',
+        timeLimit: 20,
+        hasVisual: false,
+        content: 'Dãy gồm các hydroxide của các nguyên tố chu kì 3 được sắp xếp theo chiều tính base TĂNG DẦN là:',
+        options: [
+          'A. Al(OH)₃, Mg(OH)₂, NaOH',
+          'B. NaOH, Mg(OH)₂, Al(OH)₃',
+          'C. Mg(OH)₂, Al(OH)₃, NaOH',
+          'D. Al(OH)₃, NaOH, Mg(OH)₂'
+        ],
+        correctAnswers: ['A'],
+        strictChem: false,
+        explanation: 'Trong chu kì 3, tính base giảm dần từ NaOH (base mạnh) > Mg(OH)₂ (base yếu) > Al(OH)₃ (hydroxide lưỡng tính). Vậy chiều tăng dần tính base là: Al(OH)₃ < Mg(OH)₂ < NaOH.'
+      },
+      {
+        order: 10,
+        type: 'mcq',
+        level: 'Mức 3 • Vận dụng',
+        timeLimit: 20,
+        hasVisual: false,
+        content: 'Trong các chất dưới đây (ứng với hóa trị cao nhất của các nguyên tố chu kì 3), chất nào có tính acid MẠNH NHẤT?',
+        options: [
+          'A. H₂SiO₃',
+          'B. H₃PO₄',
+          'C. H₂SO₄',
+          'D. HClO₄'
+        ],
+        correctAnswers: ['D'],
+        strictChem: false,
+        explanation: 'Theo Bảng 7.2 SGK Hóa 10 (Trang 41): H₂SiO₃ (acid yếu) < H₃PO₄ (acid trung bình) < H₂SO₄ (acid mạnh) < HClO₄ (perchloric acid - acid rất mạnh).'
+      },
+      {
+        order: 11,
+        type: 'mcq',
+        level: 'Mức 3 • Vận dụng',
+        timeLimit: 25,
+        hasVisual: true,
+        content: 'Hợp kim Almelec dùng làm dây điện cao thế có chứa 3 nguyên tố: Aluminium (Al, Z=13), Magnesium (Mg, Z=12) và Silicon (Si, Z=14). Thứ tự TĂNG DẦN bán kính nguyên tử của các nguyên tố trong Almelec là:',
+        options: [
+          'A. Mg < Al < Si',
+          'B. Si < Al < Mg',
+          'C. Al < Mg < Si',
+          'D. Si < Mg < Al'
+        ],
+        correctAnswers: ['B'],
+        strictChem: false,
+        explanation: 'Cả 3 nguyên tố Mg (Z=12), Al (Z=13), Si (Z=14) đều thuộc chu kì 3. Trong một chu kì, khi Z tăng thì bán kính nguyên tử giảm → R(Si) < R(Al) < R(Mg).'
+      },
+      {
+        order: 12,
+        type: 'number',
+        level: 'Mức 4 • Vận dụng cao (Câu Chuông Vàng)',
+        timeLimit: 30,
+        hasVisual: true,
+        content: '[CÂU CHUÔNG VÀNG] Một hợp kim nhẹ dùng trong kĩ thuật hàng không chứa hai nguyên tố A, B đứng kế tiếp nhau trong cùng một chu kì của bảng tuần hoàn và có tổng số đơn vị điện tích hạt nhân là 25 (biết Z_A < Z_B). Hãy nhập số hiệu nguyên tử Z của nguyên tố B:',
+        options: [],
+        correctAnswers: ['13'],
+        strictChem: false,
+        explanation: 'Vì A, B đứng kế tiếp nhau trong một chu kì nên Z_B - Z_A = 1. Kết hợp Z_A + Z_B = 25 ⇒ Z_A = 12 (Magnesium - Mg) và Z_B = 13 (Aluminium - Al). Vậy số hiệu nguyên tử của B là 13!'
+      }
+    ];
+
+    // 3. KHỞI TẠO DANH SÁCH 48 HỌC SINH LỚP 10A3 MẪU
+    function createDefault48Students() {
+      const ho = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ'];
+      const dem = ['Gia', 'Minh', 'Ngọc', 'Phương', 'Quốc', 'Thanh', 'Tuấn', 'Đức', 'Bảo', 'Hải', 'Khánh', 'Thảo'];
+      const ten = ['An', 'Bình', 'Châu', 'Dũng', 'Đạt', 'Giang', 'Hà', 'Hưng', 'Khoa', 'Linh', 'My', 'Nam', 'Nga', 'Phúc', 'Quân', 'Sơn'];
+      const list = [];
+      for (let i = 1; i <= 48; i++) {
+        const sttStr = i < 10 ? '0' + i : '' + i;
+        const fullName = `${ho[(i - 1) % ho.length]} ${dem[(i * 3) % dem.length]} ${ten[(i * 5) % ten.length]}`;
+        list.push({
+          id: `HS_${sttStr}`,
+          stt: i,
+          fullName,
+          className: '10A3',
+          connected: true,
+          joined: true,      // Tất cả 48 học sinh sẵn sàng trên sàn ngay từ Câu 1
+          inArena: true,     // Chỉ bị loại khi trả lời sai hoặc hết giờ
+          score: 0,
+          currentAnswer: null,
+          answeredAt: null,
+          currentResult: null, // null | 'correct' | 'wrong'
+          eliminatedReason: '',
+          history: []
+        });
+      }
+      return list;
+    }
+
+    // 4. TRẠNG THÁI TRẬN ĐẤU (STATE)
+    let gameState = {
+      roomCode: 'H10A3',
+      status: 'LOBBY', // LOBBY | QUESTION_OPEN | PAUSED | QUESTION_LOCKED | ANSWER_REVEALED | FINISHED
+      questions: JSON.parse(JSON.stringify(DEFAULT_QUESTIONS)),
+      currentQIndex: -1,
+      timeRemaining: 15,
+      defaultTimeLimit: 15,
+      rescueLeft: 2,
+      students: createDefault48Students(),
+      survivalStats: {},
+      auditLogs: [],
+      winners: []
+    };
+
+    let timerInterval = null;
+    let soundEnabled = true;
+    let selectedModalStudentId = null;
+    let currentMobileStudentId = 'HS_01';
+    let currentMobileSelectedAns = '';
+    let customPublicBaseUrl = '';
+
+    // Kênh đồng bộ thời gian thực giữa các tab/cửa sổ và PeerJS WebRTC qua mạng
+    const syncChannel = new BroadcastChannel('rung_chuong_vang_sync_v1');
+    let teacherPeer = null;
+    let studentConnections = [];
+    let clientPeerConn = null;
+    let reconnectTimer = null;
+
+    // 5. HỆ THỐNG ÂM THANH (WEB AUDIO API)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq = 800, duration = 0.14, type = 'sine') {
+      if (!soundEnabled) return;
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.16, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playGoldenBellChime() {
+      if (!soundEnabled) return;
+      const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+      notes.forEach((f, idx) => {
+        setTimeout(() => playTone(f, 0.45, 'triangle'), idx * 230);
+      });
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('btnSoundToggle').innerText = soundEnabled ? '🔊 Âm thanh: Bật' : '🔇 Âm thanh: Tắt';
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+
+    // 6. KẾT NỐI REALTIME QUA MẠNG (PEERJS WEBRTC + BROADCASTCHANNEL)
+    const PEER_CONFIG = {
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      }
+    };
+
+    function initRealtimeNetworking() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const joinRoomParam = urlParams.get('room');
+      const modeParam = urlParams.get('mode');
+
+      // Khởi tạo giá trị đường dẫn mặc định cho ô tạo QR
+      const hostInput = document.getElementById('customHostUrlInput');
+      if (hostInput && !hostInput.value) {
+        hostInput.value = getCleanCurrentUrl();
+      }
+
+      if (joinRoomParam) {
+        // Nếu mở trên điện thoại học sinh từ mã QR hoặc link có ?room=...
+        gameState.roomCode = joinRoomParam.trim().toUpperCase();
+        document.getElementById('mobileInputRoom').value = gameState.roomCode;
+        switchAppMode('student');
+        connectStudentPeerToTeacher(gameState.roomCode);
+      } else if (modeParam === 'student') {
+        switchAppMode('student');
+        connectStudentPeerToTeacher(gameState.roomCode);
+      } else {
+        setupTeacherHostPeer(gameState.roomCode);
+      }
+
+      syncChannel.onmessage = (ev) => {
+        const msg = ev.data;
+        if (!msg) return;
+        if (msg.type === 'STATE_UPDATE') {
+          gameState = msg.payload;
+          renderAllViews();
+        } else if (msg.type === 'STUDENT_SUBMIT') {
+          handleServerReceiveAnswer(msg.studentId, msg.answer);
+        } else if (msg.type === 'STUDENT_JOIN') {
+          handleStudentJoinRoom(msg.studentId, msg.customName, msg.customClass);
+        }
+      };
+    }
+
+    function setupTeacherHostPeer(roomCode) {
+      if (typeof Peer === 'undefined') return;
+      try {
+        if (teacherPeer) teacherPeer.destroy();
+        const cleanCode = String(roomCode).trim().toUpperCase();
+        teacherPeer = new Peer(`RCV_HOST_2026_${cleanCode}`, PEER_CONFIG);
+
+        teacherPeer.on('open', () => {
+          document.getElementById('tvSyncStatus').innerHTML =
+            `● Máy chủ Cloud Realtime sẵn sàng (Phòng: <b>${cleanCode}</b>)`;
+        });
+
+        teacherPeer.on('connection', (conn) => {
+          studentConnections.push(conn);
+          conn.on('open', () => {
+            conn.send({ type: 'STATE_UPDATE', payload: sanitizeStateForSync() });
+            showToast(`Có thiết bị học sinh mới vừa kết nối vào phòng ${cleanCode}!`, '📱');
+          });
+          conn.on('data', (data) => {
+            if (!data) return;
+            if (data.type === 'STUDENT_SUBMIT') {
+              handleServerReceiveAnswer(data.studentId, data.answer);
+            } else if (data.type === 'STUDENT_JOIN') {
+              handleStudentJoinRoom(data.studentId, data.customName, data.customClass);
+            }
+          });
+        });
+
+        teacherPeer.on('error', (err) => {
+          if (err && err.type === 'unavailable-id') {
+            // Phòng đang được mở ở một tab giáo viên khác trên cùng máy
+            document.getElementById('tvSyncStatus').innerText =
+              `● Đang đồng bộ song song với tab Giáo viên chính (${cleanCode})`;
+          }
+        });
+      } catch (e) {}
+    }
+
+    function connectStudentPeerToTeacher(roomCode) {
+      const cleanCode = String(roomCode || gameState.roomCode).trim().toUpperCase();
+      gameState.roomCode = cleanCode;
+      document.getElementById('mobileRoomCodePill').innerText = cleanCode;
+      document.getElementById('mobileRoomStatus').innerText = `⏳ Đang kết nối tới phòng ${cleanCode}...`;
+
+      // Đồng bộ tức thời nếu mở trên cùng trình duyệt
+      syncChannel.postMessage({ type: 'REQUEST_SYNC', roomCode: cleanCode });
+
+      if (typeof Peer === 'undefined') return;
+      try {
+        if (clientPeerConn) {
+          try { clientPeerConn.close(); } catch (e) {}
+        }
+        const sp = new Peer(undefined, PEER_CONFIG);
+        sp.on('open', () => {
+          const conn = sp.connect(`RCV_HOST_2026_${cleanCode}`, { reliable: true });
+          clientPeerConn = conn;
+
+          conn.on('open', () => {
+            document.getElementById('mobileRoomStatus').innerHTML =
+              `<span class="text-emerald-400">● Đã kết nối trực tiếp phòng <b>${cleanCode}</b></span>`;
+            showToast(`Đã kết nối thành công vào phòng ${cleanCode}!`, '✅');
+          });
+
+          conn.on('data', (data) => {
+            if (data && data.type === 'STATE_UPDATE') {
+              gameState = data.payload;
+              populateMobileStudentDropdown();
+              renderAllViews();
+            }
+          });
+
+          conn.on('close', () => {
+            document.getElementById('mobileRoomStatus').innerHTML =
+              `<span class="text-amber-300">● Mất kết nối tạm thời – Đang tự kết nối lại...</span>`;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => connectStudentPeerToTeacher(cleanCode), 3000);
+          });
+        });
+      } catch (e) {}
+    }
+
+    function sanitizeStateForSync() {
+      return JSON.parse(JSON.stringify(gameState));
+    }
+
+    function broadcastStateRealtime() {
+      const payload = sanitizeStateForSync();
+      syncChannel.postMessage({ type: 'STATE_UPDATE', payload });
+      studentConnections.forEach(c => {
+        if (c && c.open) c.send({ type: 'STATE_UPDATE', payload });
+      });
+      renderAllViews();
+    }
+
+    // 7. CHUẨN HÓA VÀ CHẤM ĐÁP ÁN TẠI MÁY CHỦ GIÁO VIÊN
+    function normalizeAnswerString(ans, qType, strictChem) {
+      if (ans === null || ans === undefined) return '';
+      let str = String(ans).trim();
+      if (qType === 'mcq') {
+        return str.charAt(0).toUpperCase();
+      }
+      if (strictChem) {
+        return str.replace(/\s+/g, '');
+      }
+      return str.replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function evaluateAnswer(submitted, question) {
+      if (submitted === null || submitted === undefined || String(submitted).trim() === '') return false;
+      const subNorm = normalizeAnswerString(submitted, question.type, question.strictChem);
+      return question.correctAnswers.some(
+        valid => normalizeAnswerString(valid, question.type, question.strictChem) === subNorm
+      );
+    }
+
+    // 8. ĐIỀU KHIỂN TRẬN ĐẤU CỦA GIÁO VIÊN
+    function teacherStartQuestion(qIndex) {
+      if (qIndex < 0 || qIndex >= gameState.questions.length) return;
+      if (timerInterval) clearInterval(timerInterval);
+
+      gameState.currentQIndex = qIndex;
+      const q = gameState.questions[qIndex];
+      const customSec = Number(document.getElementById('inputTimePerQ').value) || q.timeLimit || 15;
+      gameState.timeRemaining = customSec;
+      gameState.status = 'QUESTION_OPEN';
+
+      // Reset câu trả lời tạm thời của câu mới cho tất cả học sinh
+      gameState.students.forEach(s => {
+        s.currentAnswer = null;
+        s.answeredAt = null;
+        s.currentResult = null;
+      });
+
+      currentMobileSelectedAns = '';
+      playTone(660, 0.2, 'sine');
+      startMasterTimer();
+      broadcastStateRealtime();
+    }
+
+    function startMasterTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (gameState.status !== 'QUESTION_OPEN') {
+          clearInterval(timerInterval);
+          return;
+        }
+        gameState.timeRemaining -= 1;
+        if (gameState.timeRemaining <= 5 && gameState.timeRemaining > 0) {
+          playTone(980, 0.09, 'square');
+        }
+        if (gameState.timeRemaining <= 0) {
+          gameState.timeRemaining = 0;
+          clearInterval(timerInterval);
+          teacherLockQuestion();
+          return;
+        }
+        broadcastStateRealtime();
+      }, 1000);
+    }
+
+    function teacherPauseResume() {
+      if (gameState.status === 'QUESTION_OPEN') {
+        gameState.status = 'PAUSED';
+        if (timerInterval) clearInterval(timerInterval);
+        broadcastStateRealtime();
+      } else if (gameState.status === 'PAUSED') {
+        gameState.status = 'QUESTION_OPEN';
+        startMasterTimer();
+        broadcastStateRealtime();
+      }
+    }
+
+    function teacherLockQuestion() {
+      if (gameState.status !== 'QUESTION_OPEN' && gameState.status !== 'PAUSED') return;
+      if (timerInterval) clearInterval(timerInterval);
+      gameState.status = 'QUESTION_LOCKED';
+      playTone(440, 0.25, 'sawtooth');
+      broadcastStateRealtime();
+    }
+
+    function teacherRevealAnswer() {
+      if (gameState.currentQIndex < 0) return;
+      if (gameState.status === 'QUESTION_OPEN' || gameState.status === 'PAUSED') {
+        if (timerInterval) clearInterval(timerInterval);
+      }
+      if (gameState.status === 'ANSWER_REVEALED') return;
+
+      gameState.status = 'ANSWER_REVEALED';
+      const q = gameState.questions[gameState.currentQIndex];
+
+      // Chấm điểm & Loại trực tiếp học sinh trả lời sai hoặc không trả lời
+      gameState.students.forEach(s => {
+        if (!s.joined || !s.inArena) return;
+        const hasAns = s.currentAnswer !== null && String(s.currentAnswer).trim() !== '';
+        const isCorrect = hasAns && evaluateAnswer(s.currentAnswer, q);
+
+        if (isCorrect) {
+          s.currentResult = 'correct';
+          s.score += 1;
+        } else {
+          s.currentResult = 'wrong';
+          s.inArena = false;
+          s.eliminatedReason = hasAns ? `Sai Câu ${q.order}` : `Hết giờ Câu ${q.order}`;
+        }
+
+        s.history.push({
+          qOrder: q.order,
+          submitted: hasAns ? s.currentAnswer : '(Không trả lời)',
+          correctAns: q.correctAnswers.join(' | '),
+          isCorrect,
+          time: s.answeredAt || 'Hết giờ'
+        });
+      });
+
+      const aliveNow = gameState.students.filter(s => s.joined && s.inArena).length;
+      gameState.survivalStats[gameState.currentQIndex] = aliveNow;
+
+      playTone(880, 0.3, 'triangle');
+      broadcastStateRealtime();
+
+      // Nếu là câu cuối cùng (Câu 12) hoặc toàn bộ học sinh bị loại
+      if (gameState.currentQIndex === gameState.questions.length - 1) {
+        setTimeout(() => teacherFinishGame(), 1200);
+      }
+    }
+
+    function teacherNextQuestion() {
+      if (gameState.currentQIndex < 0) {
+        teacherStartQuestion(0);
+        return;
+      }
+      const goNext = () => {
+        if (gameState.status !== 'ANSWER_REVEALED') {
+          teacherRevealAnswer();
+        }
+        const nextIdx = gameState.currentQIndex + 1;
+        if (nextIdx >= gameState.questions.length) {
+          teacherFinishGame();
+        } else {
+          teacherStartQuestion(nextIdx);
+        }
+      };
+
+      if (gameState.status !== 'ANSWER_REVEALED') {
+        askConfirmation('Bạn chưa Công bố đáp án câu hiện tại. Hệ thống sẽ chấm câu hiện tại trước khi sang câu mới?', goNext);
+      } else {
+        goNext();
+      }
+    }
+
+    function teacherRescueStudents() {
+      if (gameState.rescueLeft <= 0) {
+        showToast('Đã sử dụng hết 2 lượt Cứu trợ trong trận đấu này!', '⚠️');
+        return;
+      }
+      const eliminatedList = gameState.students.filter(s => s.joined && !s.inArena);
+      if (eliminatedList.length === 0) {
+        showToast('Hiện tại chưa có học sinh nào bị loại trên sàn!', 'ℹ️');
+        return;
+      }
+      askConfirmation(
+        `Kích hoạt Cứu trợ máy bay giấy: Đưa toàn bộ ${eliminatedList.length} học sinh đã bị loại quay trở lại sàn thi đấu?`,
+        () => {
+          gameState.rescueLeft -= 1;
+          eliminatedList.forEach(s => {
+            s.inArena = true;
+            s.eliminatedReason = '';
+            s.currentResult = null;
+          });
+
+          gameState.auditLogs.unshift({
+            time: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
+            actor: 'Giáo viên chủ trì',
+            student: `Toàn bộ ${eliminatedList.length} HS bị loại`,
+            reason: 'Cứu trợ máy bay giấy trở lại sàn thi đấu'
+          });
+
+          playGoldenBellChime();
+          broadcastStateRealtime();
+          showToast(`Đã cứu trợ thành công ${eliminatedList.length} học sinh trở lại sàn!`, '✈️');
+        }
+      );
+    }
+
+    function teacherFinishGame() {
+      if (timerInterval) clearInterval(timerInterval);
+      gameState.status = 'FINISHED';
+      const survivors = gameState.students.filter(s => s.joined && s.inArena);
+      gameState.winners = survivors;
+      broadcastStateRealtime();
+      showVictoryModalUI();
+    }
+
+    function executeResetState() {
+      if (timerInterval) clearInterval(timerInterval);
+      gameState.status = 'LOBBY';
+      gameState.currentQIndex = -1;
+      gameState.timeRemaining = gameState.defaultTimeLimit;
+      gameState.rescueLeft = 2;
+      gameState.survivalStats = {};
+      gameState.winners = [];
+      gameState.students.forEach(s => {
+        s.inArena = true;
+        s.score = 0;
+        s.currentAnswer = null;
+        s.answeredAt = null;
+        s.currentResult = null;
+        s.eliminatedReason = '';
+        s.history = [];
+      });
+      broadcastStateRealtime();
+    }
+
+    function teacherResetGame() {
+      askConfirmation('Khởi động lại trận đấu từ Câu 1 cho toàn bộ 48 học sinh?', () => {
+        executeResetState();
+        showToast('Đã khởi động lại trận đấu về trạng thái Sẵn sàng!', '🔄');
+      });
+    }
+
+    function createNewRoom() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let suffix = '';
+      for (let i = 0; i < 2; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+      gameState.roomCode = 'H10' + suffix;
+      document.getElementById('mobileInputRoom').value = gameState.roomCode;
+      executeResetState();
+      setupTeacherHostPeer(gameState.roomCode);
+      renderQRCode();
+      openModal('qrModal');
+      showToast(`Đã tạo phòng thi mới: ${gameState.roomCode}`, '🔑');
+    }
+
+    function updateDefaultTimeLimit(val) {
+      const v = Math.max(5, Math.min(120, Number(val) || 15));
+      gameState.defaultTimeLimit = v;
+      if (gameState.status === 'LOBBY') {
+        gameState.timeRemaining = v;
+        broadcastStateRealtime();
+      }
+    }
+
+    // 9. XỬ LÝ HỌC SINH THAM GIA & GỬI ĐÁP ÁN TỪ ĐIỆN THOẠI
+    function handleStudentJoinRoom(studentId, customName, customClass) {
+      let st = gameState.students.find(s => s.id === studentId);
+      if (!st && customName) {
+        const newStt = gameState.students.length + 1;
+        st = {
+          id: `HS_${newStt}`,
+          stt: newStt,
+          fullName: customName.trim(),
+          className: (customClass || '10A3').trim(),
+          connected: true,
+          joined: true,
+          inArena: gameState.currentQIndex <= 0,
+          score: 0,
+          currentAnswer: null,
+          answeredAt: null,
+          currentResult: null,
+          eliminatedReason: gameState.currentQIndex > 0 ? 'Vào muộn sau câu 1' : '',
+          history: []
+        };
+        gameState.students.push(st);
+      }
+      if (st) {
+        st.joined = true;
+        st.connected = true;
+        currentMobileStudentId = st.id;
+      }
+      broadcastStateRealtime();
+    }
+
+    function handleServerReceiveAnswer(studentId, rawAnswer) {
+      if (gameState.status !== 'QUESTION_OPEN') return { error: 'Câu hỏi đã khóa hoặc chưa bắt đầu!' };
+      const st = gameState.students.find(s => s.id === studentId);
+      if (!st) return { error: 'Không tìm thấy thông tin học sinh!' };
+      if (!st.inArena) return { error: 'Em đã rời sàn thi đấu, chỉ có thể theo dõi ở chế độ Khán giả!' };
+      if (st.currentAnswer !== null) return { error: 'Em đã chốt đáp án cho câu hỏi này rồi!' };
+
+      st.currentAnswer = String(rawAnswer).trim();
+      const now = new Date();
+      st.answeredAt = now.toLocaleTimeString('vi-VN', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      playTone(740, 0.06, 'sine');
+      broadcastStateRealtime();
+      return { ok: true };
+    }
+
+    // Giả lập 48 học sinh trả lời trên điện thoại để giáo viên chạy thử trên lớp
+    function simulateClassAnswers() {
+      if (gameState.status !== 'QUESTION_OPEN') {
+        showToast('Hãy nhấn "▶ Bắt đầu Câu 1" (hoặc Câu tiếp theo) để mở câu hỏi trước khi giả lập 48 học sinh trả lời!', '⚠️');
+        return;
+      }
+      const q = gameState.questions[gameState.currentQIndex];
+      const rightAns = q.correctAnswers[0];
+      const wrongPool = q.type === 'mcq'
+        ? ['A', 'B', 'C', 'D'].filter(x => x !== rightAns)
+        : (q.type === 'tf' ? ['Đúng', 'Sai'].filter(x => x !== rightAns) : ['99', 'Na2O', 'Sai']);
+
+      gameState.students.forEach(s => {
+        if (s.joined && s.inArena && s.currentAnswer === null) {
+          const r = Math.random();
+          if (r < 0.82) {
+            s.currentAnswer = rightAns;
+            s.answeredAt = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+          } else if (r < 0.96) {
+            s.currentAnswer = wrongPool[Math.floor(Math.random() * wrongPool.length)];
+            s.answeredAt = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+          }
+        }
+      });
+      broadcastStateRealtime();
+      showToast('Đã giả lập 48 học sinh gửi đáp án thành công!', '🤖');
+    }
+
+    // 10. RENDER GIAO DIỆN MÁY TÍNH GIÁO VIÊN & ĐIỆN THOẠI HỌC SINH
+    function renderAllViews() {
+      renderHeaderAndQRInfo();
+      renderTeacherStage();
+      renderArenaGrid();
+      renderRightSidebar();
+      renderMobileStudentView();
+    }
+
+    function renderHeaderAndQRInfo() {
+      document.getElementById('headerRoomBadge').innerText = `PHÒNG: ${gameState.roomCode}`;
+      document.getElementById('mobileRoomCodePill').innerText = gameState.roomCode;
+      document.getElementById('qrModalRoomCode').innerText = `MÃ PHÒNG: ${gameState.roomCode}`;
+    }
+
+    function renderTeacherStage() {
+      const tag = document.getElementById('tvStageTag');
+      const typeTag = document.getElementById('tvQuestionTypeTag');
+      const title = document.getElementById('tvQuestionTitle');
+      const sub = document.getElementById('tvQuestionSub');
+      const visualBox = document.getElementById('tvVisualContainer');
+      const optGrid = document.getElementById('tvOptionsGrid');
+      const expBox = document.getElementById('tvExplanationBox');
+      const timerCircle = document.getElementById('tvTimerCircle');
+      const timerNum = document.getElementById('tvTimerNumber');
+      const btnPause = document.getElementById('btnPauseTimer');
+
+      timerNum.innerText = gameState.timeRemaining;
+      if (gameState.status === 'QUESTION_OPEN' && gameState.timeRemaining <= 5) {
+        timerCircle.classList.add('timer-danger');
+      } else {
+        timerCircle.classList.remove('timer-danger');
+      }
+
+      btnPause.innerText = gameState.status === 'PAUSED' ? '⏵ Tiếp tục' : '⏸ Tạm dừng';
+      document.getElementById('rescueCountText').innerText = gameState.rescueLeft;
+
+      if (gameState.status === 'LOBBY' || gameState.currentQIndex < 0) {
+        const aliveCnt = gameState.students.filter(s => s.joined && s.inArena).length;
+        tag.innerText = 'SẴN SÀNG';
+        typeTag.innerText = `Bộ đề 12 câu • Ôn tập Chương 2 Hóa 10`;
+        title.innerText = 'Mời cả lớp lên sàn thi đấu!';
+        sub.innerHTML = `Tất cả <b>${aliveCnt} học sinh</b> đang ở trên sàn. Giáo viên bấm <b>“▶ Bắt đầu Câu 1”</b> để vào câu hỏi đầu tiên.`;
+        visualBox.classList.add('hidden');
+        optGrid.innerHTML = '';
+        expBox.classList.add('hidden');
+        return;
+      }
+
+      const q = gameState.questions[gameState.currentQIndex];
+      const statusLabels = {
+        'QUESTION_OPEN': `CÂU ${q.order}/12 • ĐANG MỞ NHẬN ĐÁP ÁN`,
+        'PAUSED': `CÂU ${q.order}/12 • ĐANG TẠM DỪNG`,
+        'QUESTION_LOCKED': `CÂU ${q.order}/12 • ĐÃ KHÓA NHẬN ĐÁP ÁN`,
+        'ANSWER_REVEALED': `CÂU ${q.order}/12 • ĐÃ CÔNG BỐ ĐÁP ÁN`,
+        'FINISHED': `KẾT THÚC TRẬN ĐẤU`
+      };
+      tag.innerText = statusLabels[gameState.status] || '';
+      typeTag.innerText = q.level || '';
+      title.innerText = `Câu ${q.order}: ${q.content}`;
+      sub.innerText = q.type === 'mcq'
+        ? 'Học sinh chọn 1 đáp án đúng nhất trên điện thoại và nhấn Xác nhận.'
+        : (q.type === 'tf' ? 'Học sinh chọn Đúng hoặc Sai trên điện thoại.' : 'Học sinh nhập câu trả lời ngắn / con số chính xác vào ô trống trên điện thoại.');
+
+      // Hiển thị Bảng tuần hoàn trực quan nếu câu hỏi có bật hasVisual
+      if (q.hasVisual) {
+        visualBox.innerHTML = PERIODIC_TABLE_SVG;
+        visualBox.classList.remove('hidden');
+      } else {
+        visualBox.classList.add('hidden');
+      }
+
+      // Render các lựa chọn
+      optGrid.innerHTML = '';
+      const isRevealed = gameState.status === 'ANSWER_REVEALED' || gameState.status === 'FINISHED';
+
+      if (q.options && q.options.length > 0) {
+        q.options.forEach(opt => {
+          const div = document.createElement('div');
+          const optKey = q.type === 'mcq' ? opt.trim().charAt(0).toUpperCase() : opt.trim();
+          const isCorrectOpt = isRevealed && q.correctAnswers.some(c => normalizeAnswerString(c, q.type, q.strictChem) === normalizeAnswerString(optKey, q.type, q.strictChem));
+
+          div.className = `p-3.5 rounded-xl font-bold text-sm md:text-base transition border ${
+            isCorrectOpt
+              ? 'bg-emerald-600/40 border-2 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+              : 'bg-slate-900/75 border-white/15 text-slate-100'
+          }`;
+          div.innerHTML = `${opt} ${isCorrectOpt ? '<span class="float-right text-emerald-300">✔ ĐÁP ÁN ĐÚNG</span>' : ''}`;
+          optGrid.appendChild(div);
+        });
+      } else if (isRevealed) {
+        optGrid.innerHTML = `
+          <div class="col-span-2 p-3.5 rounded-xl bg-emerald-600/30 border-2 border-emerald-400 text-base font-black text-emerald-200">
+            ✔ ĐÁP ÁN CHUẨN: ${q.correctAnswers.join(' | ')}
+          </div>
+        `;
+      }
+
+      // Hiển thị giải thích chi tiết sau khi công bố đáp án
+      if (isRevealed) {
+        expBox.innerHTML = `<div class="font-bold text-emerald-300 mb-1">💡 Giải thích kiến thức Hóa học 10:</div><div>${q.explanation}</div>`;
+        expBox.classList.remove('hidden');
+      } else {
+        expBox.classList.add('hidden');
+      }
+    }
+
+    function renderArenaGrid() {
+      const grid = document.getElementById('arenaStudentsGrid');
+      const kw = (document.getElementById('searchStudentInput').value || '').trim().toLowerCase();
+      const filter = document.getElementById('filterArenaSelect').value;
+      grid.innerHTML = '';
+
+      gameState.students.forEach(s => {
+        if (kw && !s.fullName.toLowerCase().includes(kw) && !String(s.stt).includes(kw)) return;
+        if (filter === 'alive' && !s.inArena) return;
+        if (filter === 'eliminated' && s.inArena) return;
+        if (filter === 'answered' && s.currentAnswer === null) return;
+
+        let tileClass = 'tile-fighting';
+        let badgeRight = `${s.score}đ`;
+
+        if (!s.joined) {
+          tileClass = 'tile-offline';
+        } else if (!s.inArena) {
+          tileClass = 'tile-eliminated';
+        } else if (gameState.status === 'ANSWER_REVEALED' && s.currentResult === 'correct') {
+          tileClass = 'tile-correct';
+          badgeRight = `✔ ${s.score}đ`;
+        } else if (s.currentAnswer !== null) {
+          tileClass = 'tile-submitted';
+          badgeRight = `Đã nộp`;
+        }
+
+        const div = document.createElement('div');
+        div.className = `student-tile ${tileClass} rounded-xl px-2.5 py-2 flex items-center justify-between gap-1 text-xs font-extrabold shadow`;
+        div.title = `${s.stt}. ${s.fullName} (${s.className}) — ${s.inArena ? 'Đang trên sàn' : 'Đã rời sàn: ' + s.eliminatedReason}`;
+        div.onclick = () => openStudentDetailModal(s.id);
+
+        const shortName = s.fullName.split(' ').slice(-2).join(' ');
+        div.innerHTML = `
+          <div class="truncate">
+            <span class="opacity-80 mr-1">${s.stt}</span>${shortName}
+          </div>
+          <span class="px-1.5 py-0.5 rounded-full bg-slate-950/35 text-white text-[10px] font-bold shrink-0">${badgeRight}</span>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    function renderRightSidebar() {
+      const total = gameState.students.length;
+      const alive = gameState.students.filter(s => s.joined && s.inArena).length;
+      const eliminated = gameState.students.filter(s => s.joined && !s.inArena).length;
+      const correctNow = gameState.students.filter(s => s.currentResult === 'correct').length;
+      const wrongNow = gameState.students.filter(s => s.currentResult === 'wrong').length;
+      const unansweredNow = gameState.students.filter(s => s.joined && s.inArena && s.currentAnswer === null).length;
+
+      document.getElementById('statAliveCount').innerText = alive;
+      document.getElementById('statTotalCount').innerText = total;
+      document.getElementById('statSubSummary').innerText = eliminated === 0 ? 'Chưa ai rời sàn' : `Đã loại ${eliminated} học sinh`;
+      document.getElementById('statCorrectNow').innerText = correctNow;
+      document.getElementById('statWrongNow').innerText = wrongNow;
+      document.getElementById('statUnansweredNow').innerText = unansweredNow;
+      document.getElementById('statEliminatedTotal').innerText = eliminated;
+
+      // Render thang 12 câu hỏi
+      const ladder = document.getElementById('goldenLadderList');
+      ladder.innerHTML = '';
+      gameState.questions.forEach((q, idx) => {
+        const isCurrent = idx === gameState.currentQIndex;
+        const isPassed = idx < gameState.currentQIndex;
+        const step = document.createElement('div');
+        step.className = `px-3 py-1.5 rounded-xl text-xs font-bold flex items-center justify-between cursor-pointer transition ${
+          isCurrent
+            ? 'bg-amber-400 text-slate-950 font-black shadow'
+            : isPassed
+              ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/30'
+              : 'bg-slate-900/50 text-slate-300 hover:bg-slate-800'
+        }`;
+        step.onclick = () => {
+          askConfirmation(`Chuyển trực tiếp tới Câu ${q.order}?`, () => teacherStartQuestion(idx));
+        };
+        const rightText = gameState.survivalStats[idx] !== undefined
+          ? `${gameState.survivalStats[idx]} HS`
+          : (idx === gameState.questions.length - 1 ? '🔔' : '');
+        step.innerHTML = `
+          <span>${q.order}. ${idx === gameState.questions.length - 1 ? 'Câu Chuông Vàng' : 'Câu ' + q.order}</span>
+          <span>${rightText}</span>
+        `;
+        ladder.appendChild(step);
+      });
+    }
+
+    // 11. RENDER GIAO DIỆN ĐIỆN THOẠI HỌC SINH
+    function populateMobileStudentDropdown() {
+      const sel = document.getElementById('mobileSelectStudent');
+      if (!sel) return;
+      sel.innerHTML = gameState.students.map(s =>
+        `<option value="${s.id}" ${s.id === currentMobileStudentId ? 'selected' : ''}>${s.stt}. ${s.fullName} (${s.className})</option>`
+      ).join('') + `<option value="__NEW__">+ Nhập tên mới ngoài danh sách...</option>`;
+    }
+
+    function onMobileSelectStudentChange() {
+      const val = document.getElementById('mobileSelectStudent').value;
+      const box = document.getElementById('mobileCustomNameBox');
+      if (val === '__NEW__') {
+        box.classList.remove('hidden');
+        box.classList.add('flex');
+      } else {
+        box.classList.add('hidden');
+        box.classList.remove('flex');
+        currentMobileStudentId = val;
+      }
+    }
+
+    function studentConfirmJoin() {
+      const enteredRoom = (document.getElementById('mobileInputRoom').value || '').trim().toUpperCase();
+      const selVal = document.getElementById('mobileSelectStudent').value;
+      const customName = document.getElementById('mobileInputCustomName').value.trim();
+      const customClass = document.getElementById('mobileInputCustomClass').value.trim();
+
+      if (!enteredRoom) {
+        document.getElementById('mobileJoinError').innerText = 'Vui lòng nhập Mã phòng thi!';
+        return;
+      }
+
+      if (selVal === '__NEW__' && !customName) {
+        document.getElementById('mobileJoinError').innerText = 'Vui lòng nhập họ tên của em!';
+        return;
+      }
+
+      document.getElementById('mobileJoinError').innerText = '';
+
+      // Nếu học sinh nhập mã phòng mới trên điện thoại thì tự động kết nối PeerJS tới mã phòng đó
+      if (enteredRoom !== gameState.roomCode) {
+        connectStudentPeerToTeacher(enteredRoom);
+      }
+
+      handleStudentJoinRoom(selVal === '__NEW__' ? null : selVal, customName, customClass);
+      syncChannel.postMessage({
+        type: 'STUDENT_JOIN',
+        studentId: currentMobileStudentId,
+        customName,
+        customClass
+      });
+      if (clientPeerConn && clientPeerConn.open) {
+        clientPeerConn.send({ type: 'STUDENT_JOIN', studentId: currentMobileStudentId, customName, customClass });
+      }
+
+      document.getElementById('mobileJoinScreen').classList.add('hidden');
+      document.getElementById('mobileGameScreen').classList.remove('hidden');
+      document.getElementById('mobileGameScreen').classList.add('flex');
+      renderMobileStudentView();
+      showToast('Đã vào sàn thi đấu thành công!', '🚀');
+    }
+
+    function studentSwitchAccount() {
+      populateMobileStudentDropdown();
+      document.getElementById('mobileGameScreen').classList.add('hidden');
+      document.getElementById('mobileJoinScreen').classList.remove('hidden');
+    }
+
+    function renderMobileStudentView() {
+      const me = gameState.students.find(s => s.id === currentMobileStudentId) || gameState.students[0];
+      if (!me) return;
+
+      document.getElementById('mobilePlayerName').innerText = `${me.stt}. ${me.fullName} (${me.className})`;
+      document.getElementById('mobilePlayerScore').innerText = me.score;
+      document.getElementById('mobilePlayerStatusBadge').innerHTML = me.inArena
+        ? '<span class="text-amber-400">● Đang thi đấu trên sàn</span>'
+        : `<span class="text-rose-400">● Đã bị loại (${me.eliminatedReason}) – Chế độ Khán giả</span>`;
+
+      const card = document.getElementById('mobileQuestionCard');
+      if (gameState.status === 'LOBBY' || gameState.currentQIndex < 0) {
+        card.innerHTML = `
+          <div class="text-center py-6">
+            <div class="text-5xl mb-2">🔔</div>
+            <div class="font-black text-amber-400 text-base">ĐÃ LÊN SÀN THI ĐẤU!</div>
+            <p class="text-xs text-slate-300 mt-1">Chờ Giáo viên nhấn "Bắt đầu Câu 1" trên máy tính...</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (gameState.status === 'FINISHED') {
+        const isWinner = gameState.winners.some(w => w.id === me.id);
+        card.innerHTML = `
+          <div class="text-center py-4">
+            <div class="text-5xl mb-2">${isWinner ? '🏆🔔' : '🎉'}</div>
+            <div class="font-black text-lg text-amber-400">${isWinner ? 'CHÚC MỪNG EM RUNG CHUÔNG VÀNG!' : 'TRẬN ĐẤU ĐÃ KẾT THÚC'}</div>
+            <p class="text-xs text-slate-300 mt-1">Số câu trả lời đúng của em: <b>${me.score}/12</b></p>
+          </div>
+        `;
+        return;
+      }
+
+      const q = gameState.questions[gameState.currentQIndex];
+      let html = `
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-black text-amber-400 uppercase">CÂU ${q.order} / ${gameState.questions.length}</span>
+          <span class="px-3 py-1 rounded-full font-black text-sm ${gameState.timeRemaining <= 5 ? 'bg-rose-600 text-white' : 'bg-amber-400 text-slate-950'}">
+            ⏱ ${gameState.timeRemaining}s
+          </span>
+        </div>
+        <div class="font-extrabold text-sm md:text-base leading-snug text-white">${q.content}</div>
+      `;
+
+      if (q.hasVisual) {
+        html += `<div class="p-2 rounded-xl bg-slate-900 border border-white/10">${PERIODIC_TABLE_SVG}</div>`;
+      }
+
+      // Trạng thái trả lời của học sinh
+      if (me.currentAnswer !== null) {
+        html += `
+          <div class="p-3 rounded-xl bg-emerald-900/50 border border-emerald-400 text-center text-xs font-bold text-emerald-200">
+            ✔ Đã ghi nhận câu trả lời: <span class="text-white font-black">${me.currentAnswer}</span> (lúc ${me.answeredAt})
+          </div>
+        `;
+      } else if (!me.inArena) {
+        html += `
+          <div class="p-3 rounded-xl bg-rose-950/70 border border-rose-400 text-center text-xs font-bold text-rose-200">
+            🚫 Bạn đã bị loại khỏi sàn thi đấu. Bạn đang theo dõi câu hỏi ở chế độ Khán giả.
+          </div>
+        `;
+      } else if (gameState.status === 'QUESTION_OPEN') {
+        if (q.type === 'mcq' || q.type === 'tf') {
+          html += `<div class="flex flex-col gap-2">` + q.options.map(opt => {
+            const val = q.type === 'mcq' ? opt.trim().charAt(0).toUpperCase() : opt.trim();
+            const isSel = currentMobileSelectedAns === val;
+            return `
+              <button onclick="selectMobileOption('${val}')" class="w-full text-left p-3.5 rounded-xl font-bold text-sm border-2 transition ${
+                isSel ? 'bg-amber-400/25 border-amber-400 text-amber-200' : 'bg-slate-900 border-white/15 text-white'
+              }">
+                ${opt}
+              </button>
+            `;
+          }).join('') + `</div>`;
+        } else {
+          html += `
+            <input id="mobileShortAnswerInput" type="${q.type === 'number' ? 'number' : 'text'}"
+              value="${currentMobileSelectedAns}"
+              oninput="currentMobileSelectedAns = this.value"
+              placeholder="Nhập đáp án của em vào đây..."
+              class="w-full p-3.5 rounded-xl bg-slate-900 border-2 border-blue-400/50 text-white font-bold text-center text-base" />
+          `;
+        }
+        html += `
+          <button onclick="studentSubmitAnswerNow()" class="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm shadow-lg mt-1">
+            ✔ XÁC NHẬN TRẢ LỜI
+          </button>
+        `;
+      } else if (gameState.status === 'PAUSED') {
+        html += `<div class="p-3 rounded-xl bg-amber-950/60 border border-amber-400 text-center text-xs font-bold">⏸ Giáo viên đang tạm dừng đồng hồ...</div>`;
+      } else {
+        html += `<div class="p-3 rounded-xl bg-rose-950/60 border border-rose-400 text-center text-xs font-bold">🔒 Đã hết thời gian nhận câu trả lời!</div>`;
+      }
+
+      // Sau khi giáo viên công bố đáp án
+      if (gameState.status === 'ANSWER_REVEALED') {
+        if (me.currentResult === 'correct') {
+          html += `<div class="p-3 rounded-xl bg-emerald-600 text-white font-black text-center text-xs">🎉 CHÍNH XÁC! Bạn tiếp tục thi đấu câu tiếp theo!</div>`;
+        } else if (me.currentResult === 'wrong') {
+          html += `<div class="p-3 rounded-xl bg-rose-600 text-white font-black text-center text-xs">❌ Bạn đã bị loại khỏi sàn thi đấu!</div>`;
+        }
+        html += `
+          <div class="p-3 rounded-xl bg-slate-900 border border-emerald-400/40 text-xs">
+            <div class="font-black text-emerald-400">Đáp án chuẩn: ${q.correctAnswers.join(' | ')}</div>
+            <div class="text-slate-300 mt-1">${q.explanation}</div>
+          </div>
+        `;
+      }
+
+      card.innerHTML = html;
+    }
+
+    function selectMobileOption(val) {
+      currentMobileSelectedAns = val;
+      renderMobileStudentView();
+    }
+
+    function studentSubmitAnswerNow() {
+      const inp = document.getElementById('mobileShortAnswerInput');
+      if (inp) currentMobileSelectedAns = inp.value.trim();
+      if (!currentMobileSelectedAns) {
+        showToast('Em hãy chọn hoặc nhập đáp án trước khi bấm Xác nhận!', '⚠️');
+        return;
+      }
+      const res = handleServerReceiveAnswer(currentMobileStudentId, currentMobileSelectedAns);
+      if (res && res.error) {
+        showToast(res.error, '🚫');
+        return;
+      }
+      syncChannel.postMessage({ type: 'STUDENT_SUBMIT', studentId: currentMobileStudentId, answer: currentMobileSelectedAns });
+      if (clientPeerConn && clientPeerConn.open) {
+        clientPeerConn.send({ type: 'STUDENT_SUBMIT', studentId: currentMobileStudentId, answer: currentMobileSelectedAns });
+      }
+      renderMobileStudentView();
+      showToast(`Đã gửi đáp án "${currentMobileSelectedAns}" về máy chủ Giáo viên!`, '✅');
+    }
+
+    // 12. CHUYỂN ĐỔI CHẾ ĐỘ XEM (GIÁO VIÊN / HỌC SINH / SONG SONG)
+    function switchAppMode(mode) {
+      const main = document.getElementById('mainWorkspace');
+      const tv = document.getElementById('teacherWorkspace');
+      const st = document.getElementById('studentWorkspace');
+      const bT = document.getElementById('tabTeacherBtn');
+      const bS = document.getElementById('tabStudentBtn');
+      const bP = document.getElementById('tabSplitBtn');
+
+      [bT, bS, bP].forEach(b => {
+        b.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
+      });
+
+      if (mode === 'teacher') {
+        bT.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 transition';
+        main.className = 'flex-1 grid grid-cols-1 gap-4 p-3 md:p-5';
+        tv.classList.remove('hidden');
+        st.classList.add('hidden');
+      } else if (mode === 'student') {
+        bS.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 transition';
+        main.className = 'flex-1 grid grid-cols-1 gap-4 p-3 md:p-5 items-center';
+        tv.classList.add('hidden');
+        st.classList.remove('hidden');
+        populateMobileStudentDropdown();
+      } else if (mode === 'split') {
+        bP.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 transition';
+        main.className = 'flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 p-3 md:p-5 items-start';
+        tv.className = 'xl:col-span-8 flex flex-col lg:flex-row gap-4 w-full';
+        st.className = 'xl:col-span-4 w-full max-w-md mx-auto block';
+        populateMobileStudentDropdown();
+      }
+      renderAllViews();
+    }
+
+    // 13. CÁC MODAL QUẢN TRỊ (QR, KHÔI PHỤC HỌC SINH, NGÂN HÀNG ĐỀ, DANH SÁCH LỚP, BÁO CÁO)
+    function openModal(id) {
+      if (id === 'qrModal') renderQRCode();
+      if (id === 'questionBankModal') renderQuestionBankModalUI();
+      if (id === 'classRosterModal') renderClassRosterModalUI();
+      if (id === 'auditLogModal') renderAuditLogModalUI();
+      const el = document.getElementById(id);
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    }
+
+    function isSandboxPreviewUrl(urlStr) {
+      if (!urlStr) return true;
+      const lower = urlStr.toLowerCase();
+      return (
+        lower.startsWith('blob:') ||
+        lower.startsWith('data:') ||
+        lower.startsWith('about:') ||
+        lower.includes('usercontent.goog') ||
+        lower.includes('null')
+      );
+    }
+
+    function getCleanCurrentUrl() {
+      try {
+        const raw = window.location.href.split('?')[0].split('#')[0];
+        return raw;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function getActiveJoinUrl() {
+      let base = (customPublicBaseUrl || '').trim();
+      if (!base) {
+        const inp = document.getElementById('customHostUrlInput');
+        if (inp && inp.value.trim()) base = inp.value.trim();
+      }
+      if (!base) {
+        base = getCleanCurrentUrl();
+      }
+      base = base.split('?')[0].split('#')[0];
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}room=${encodeURIComponent(gameState.roomCode)}&mode=student`;
+    }
+
+    function onCustomHostUrlInput() {
+      const inp = document.getElementById('customHostUrlInput');
+      customPublicBaseUrl = inp ? inp.value.trim() : '';
+      renderQRCode();
+    }
+
+    function resetDefaultHostUrl() {
+      customPublicBaseUrl = '';
+      const inp = document.getElementById('customHostUrlInput');
+      if (inp) inp.value = getCleanCurrentUrl();
+      renderQRCode();
+    }
+
+    function renderQRCode() {
+      const inp = document.getElementById('customHostUrlInput');
+      if (inp && !inp.value.trim()) {
+        inp.value = getCleanCurrentUrl();
+      }
+
+      const url = getActiveJoinUrl();
+      const linkEl = document.getElementById('qrJoinUrlLink');
+      if (linkEl) {
+        linkEl.innerText = url;
+        linkEl.href = url;
+      }
+
+      // Kiểm tra nếu URL đang là link nội bộ sandbox (blob/iframe) thì hiện hướng dẫn để GV biết vì sao điện thoại ngoài chưa mở được
+      const noticeBox = document.getElementById('sandboxUrlNotice');
+      if (noticeBox) {
+        if (isSandboxPreviewUrl(url)) {
+          noticeBox.classList.remove('hidden');
+        } else {
+          noticeBox.classList.add('hidden');
+        }
+      }
+
+      const container = document.getElementById('qrcodeCanvas');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (typeof QRCode !== 'undefined') {
+        try {
+          new QRCode(container, {
+            text: url,
+            width: 220,
+            height: 220,
+            colorDark: '#091533',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } catch (err) {
+          container.innerHTML = `<div class="text-xs text-rose-600 font-bold p-4">Đường dẫn quá dài hoặc không hợp lệ để tạo QR.</div>`;
+        }
+      }
+    }
+
+    function showQrFeedback(msg) {
+      const fb = document.getElementById('qrActionFeedback');
+      if (!fb) return;
+      fb.innerText = msg;
+      fb.classList.remove('hidden');
+      setTimeout(() => fb.classList.add('hidden'), 3500);
+    }
+
+    // Sao chép đường dẫn tương thích tuyệt đối với iframe (Sử dụng document.execCommand('copy') dự phòng)
+    function copyRoomLink() {
+      const url = getActiveJoinUrl();
+      let copied = false;
+      try {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = url;
+        tempInput.style.position = 'fixed';
+        tempInput.style.left = '-9999px';
+        document.body.appendChild(tempInput);
+        tempInput.focus();
+        tempInput.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      } catch (e) {}
+
+      if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+
+      showQrFeedback('✔ Đã sao chép đường dẫn phòng thi vào bộ nhớ tạm!');
+      showToast('Đã sao chép đường dẫn tham gia phòng thi!', '📋');
+    }
+
+    // Mở trực tiếp giao diện học sinh để kiểm tra kết nối ngay lập tức
+    function openStudentTabDirectly() {
+      const url = getActiveJoinUrl();
+      if (isSandboxPreviewUrl(url)) {
+        // Nếu đang ở trong khung Preview bị khóa popup, bật ngay Chế độ Song song (Giáo viên + Điện thoại Học sinh)
+        closeModal('qrModal');
+        switchAppMode('split');
+        showToast(`Đã mở Điện thoại Học sinh và kết nối trực tiếp vào phòng ${gameState.roomCode}!`, '📱');
+      } else {
+        window.open(url, '_blank');
+      }
+    }
+
+    // Tải ảnh QR về máy tính Giáo viên để chèn vào PowerPoint / Zalo
+    function downloadQRImage() {
+      const canvas = document.querySelector('#qrcodeCanvas canvas');
+      const img = document.querySelector('#qrcodeCanvas img');
+      let dataUrl = '';
+      if (canvas) dataUrl = canvas.toDataURL('image/png');
+      else if (img && img.src) dataUrl = img.src;
+
+      if (!dataUrl) {
+        showToast('Chưa tìm thấy ảnh QR để tải!', '⚠️');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `QR_RungChuongVang_${gameState.roomCode}.png`;
+      a.click();
+      showQrFeedback('✔ Đã tải ảnh mã QR xuống máy tính!');
+    }
+
+    // Tải file ứng dụng HTML độc lập về máy để đưa lên Netlify Drop / GitHub Pages / LAN
+    function downloadStandaloneApp() {
+      const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `RungChuongVang_Hoa10_${gameState.roomCode}.html`;
+      a.click();
+      showQrFeedback('✔ Đã tải file HTML! Thầy có thể kéo thả file này lên app.netlify.com/drop để lấy link cho cả lớp quét QR.');
+    }
+
+    function openStudentDetailModal(studentId) {
+      selectedModalStudentId = studentId;
+      const s = gameState.students.find(x => x.id === studentId);
+      if (!s) return;
+      document.getElementById('modalStTitle').innerText = `${s.stt}. ${s.fullName} (Lớp ${s.className})`;
+      document.getElementById('modalStSub').innerText =
+        `Điểm hiện tại: ${s.score} câu đúng • Trạng thái: ${s.inArena ? 'Đang thi đấu trên sàn' : 'Đã bị loại (' + s.eliminatedReason + ')'}`;
+
+      const hBox = document.getElementById('modalStHistory');
+      if (!s.history.length) {
+        hBox.innerHTML = '<div class="text-slate-400 italic">Chưa có lịch sử trả lời câu hỏi.</div>';
+      } else {
+        hBox.innerHTML = s.history.map(h => `
+          <div class="flex justify-between border-b border-white/10 pb-1">
+            <span><b>Câu ${h.qOrder}:</b> Chọn <code>${h.submitted}</code> (Đúng: ${h.correctAns})</span>
+            <span class="${h.isCorrect ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}">${h.isCorrect ? '✔ Đúng' : '✕ Sai'}</span>
+          </div>
+        `).join('');
+      }
+      openModal('studentDetailModal');
+    }
+
+    function confirmToggleStudentArena() {
+      const s = gameState.students.find(x => x.id === selectedModalStudentId);
+      if (!s) return;
+      const reason = document.getElementById('modalRestoreReason').value.trim() || 'Xử lý kỹ thuật';
+      s.inArena = !s.inArena;
+      s.eliminatedReason = s.inArena ? '' : `Giáo viên loại (${reason})`;
+
+      gameState.auditLogs.unshift({
+        time: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
+        actor: 'Giáo viên chủ trì',
+        student: `${s.stt}. ${s.fullName}`,
+        reason: `${s.inArena ? 'Khôi phục vào sàn' : 'Loại khỏi sàn'}: ${reason}`
+      });
+
+      closeModal('studentDetailModal');
+      broadcastStateRealtime();
+    }
+
+    function renderQuestionBankModalUI() {
+      const box = document.getElementById('questionBankList');
+      box.innerHTML = gameState.questions.map((q, idx) => `
+        <div class="p-4 rounded-2xl bg-slate-950/80 border border-white/10 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-black text-amber-400 text-xs">CÂU ${idx + 1} (${q.level || 'Tùy chỉnh'})</span>
+            <button onclick="gameState.questions.splice(${idx},1);renderQuestionBankModalUI()" class="text-xs text-rose-400 font-bold">Xóa câu</button>
+          </div>
+          <textarea rows="2" onchange="gameState.questions[${idx}].content=this.value" class="w-full p-2 rounded-lg bg-slate-900 border border-white/15 text-xs text-white">${q.content}</textarea>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <select onchange="gameState.questions[${idx}].type=this.value" class="p-2 rounded-lg bg-slate-900 border border-white/15 text-xs text-white">
+              <option value="mcq" ${q.type === 'mcq' ? 'selected' : ''}>Trắc nghiệm 4 lựa chọn</option>
+              <option value="tf" ${q.type === 'tf' ? 'selected' : ''}>Đúng / Sai</option>
+              <option value="short" ${q.type === 'short' ? 'selected' : ''}>Trả lời ngắn / Công thức</option>
+              <option value="number" ${q.type === 'number' ? 'selected' : ''}>Điền đáp án số</option>
+            </select>
+            <input type="number" value="${q.timeLimit}" onchange="gameState.questions[${idx}].timeLimit=Number(this.value)" class="p-2 rounded-lg bg-slate-900 border border-white/15 text-xs text-white" placeholder="Thời gian (giây)" />
+            <input type="text" value="${q.correctAnswers.join('|')}" onchange="gameState.questions[${idx}].correctAnswers=this.value.split('|').map(x=>x.trim())" class="p-2 rounded-lg bg-slate-900 border border-emerald-400/40 text-xs text-emerald-300 font-bold" placeholder="Đáp án đúng (cách nhau bởi |)" />
+          </div>
+          <input type="text" value="${(q.options || []).join(' || ')}" onchange="gameState.questions[${idx}].options=this.value.split('||').map(x=>x.trim()).filter(Boolean)" class="w-full p-2 rounded-lg bg-slate-900 border border-white/15 text-xs text-slate-200" placeholder="Các phương án cách nhau bởi ||" />
+          <input type="text" value="${q.explanation || ''}" onchange="gameState.questions[${idx}].explanation=this.value" class="w-full p-2 rounded-lg bg-slate-900 border border-white/15 text-xs text-amber-200" placeholder="Giải thích sau khi công bố đáp án" />
+        </div>
+      `).join('');
+    }
+
+    function addNewBlankQuestion() {
+      const nextOrder = gameState.questions.length + 1;
+      gameState.questions.push({
+        order: nextOrder,
+        type: 'mcq',
+        level: 'Tùy chỉnh',
+        timeLimit: 15,
+        hasVisual: false,
+        content: 'Nhập nội dung câu hỏi mới...',
+        options: ['A. Phương án 1', 'B. Phương án 2', 'C. Phương án 3', 'D. Phương án 4'],
+        correctAnswers: ['A'],
+        strictChem: false,
+        explanation: 'Giải thích đáp án...'
+      });
+      renderQuestionBankModalUI();
+    }
+
+    function saveQuestionBankChanges() {
+      gameState.questions.forEach((q, i) => q.order = i + 1);
+      closeModal('questionBankModal');
+      broadcastStateRealtime();
+      showToast('Đã cập nhật bộ câu hỏi thành công!', '💾');
+    }
+
+    function renderClassRosterModalUI() {
+      document.getElementById('rosterTextarea').value = gameState.students
+        .map(s => `${s.fullName}, ${s.className}`)
+        .join('\n');
+    }
+
+    function applyRosterFromText() {
+      const lines = document.getElementById('rosterTextarea').value.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) {
+        showToast('Danh sách lớp không được để trống!', '⚠️');
+        return;
+      }
+      gameState.students = lines.map((line, idx) => {
+        const parts = line.split(',');
+        const stt = idx + 1;
+        return {
+          id: `HS_${stt < 10 ? '0' + stt : stt}`,
+          stt,
+          fullName: (parts[0] || `Học sinh ${stt}`).trim(),
+          className: (parts[1] || '10A3').trim(),
+          connected: true,
+          joined: true,
+          inArena: true,
+          score: 0,
+          currentAnswer: null,
+          answeredAt: null,
+          currentResult: null,
+          eliminatedReason: '',
+          history: []
+        };
+      });
+      closeModal('classRosterModal');
+      broadcastStateRealtime();
+      showToast(`Đã cập nhật danh sách lớp (${gameState.students.length} học sinh)!`, '👥');
+    }
+
+    function renderAuditLogModalUI() {
+      const box = document.getElementById('auditLogContent');
+      if (!gameState.auditLogs.length) {
+        box.innerHTML = '<div class="text-slate-400 italic">Chưa có thao tác khôi phục hoặc cứu trợ nào trong trận này.</div>';
+        return;
+      }
+      box.innerHTML = gameState.auditLogs.map(log => `
+        <div class="p-3 rounded-xl bg-slate-950 border border-white/10 flex justify-between items-center">
+          <div>
+            <span class="text-amber-400 font-bold">[${log.time}] ${log.actor}</span> → <b>${log.student}</b>
+            <div class="text-slate-300 mt-0.5">Lý do: ${log.reason}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function showVictoryModalUI() {
+      const headline = document.getElementById('victoryHeadline');
+      const desc = document.getElementById('victoryDescription');
+      const box = document.getElementById('victoryWinnersContainer');
+      box.innerHTML = '';
+
+      if (!gameState.winners || gameState.winners.length === 0) {
+        headline.innerText = 'TRẬN ĐẤU KẾT THÚC';
+        desc.innerText = 'Toàn bộ thí sinh đã rời sàn thi đấu. Giáo viên có thể dùng Cứu trợ hoặc Chơi lại trận mới!';
+      } else {
+        playGoldenBellChime();
+        headline.innerText = '🔔 RUNG CHUÔNG VÀNG!';
+        desc.innerText = gameState.winners.length === 1
+          ? 'Chúc mừng Nhà vô địch duy nhất trụ lại trên sàn và chinh phục đỉnh cao Hóa học 10!'
+          : `Chúc mừng ${gameState.winners.length} học sinh xuất sắc đồng chiến thắng Rung Chuông Vàng!`;
+
+        gameState.winners.forEach(w => {
+          box.innerHTML += `
+            <div class="p-3.5 rounded-2xl bg-amber-400/20 border-2 border-amber-400 text-white font-black text-base flex items-center justify-between">
+              <span>🏆 ${w.stt}. ${w.fullName} (Lớp ${w.className})</span>
+              <span class="text-amber-300">${w.score} câu đúng</span>
+            </div>
+          `;
+        });
+      }
+      openModal('victoryModal');
+    }
+
+    function exportReportCSV() {
+      const BOM = '\uFEFF';
+      let csv = BOM + 'Mã Phòng,STT,Họ và Tên,Lớp,Số Câu Đúng,Trạng Thái Cuối Cùng,Danh Hiệu\n';
+      gameState.students.forEach(s => {
+        const isWin = gameState.winners.some(w => w.id === s.id) ? 'RUNG CHUÔNG VÀNG' : '';
+        const stText = s.inArena ? 'Còn trên sàn' : `Đã bị loại (${s.eliminatedReason})`;
+        csv += `${gameState.roomCode},${s.stt},"${s.fullName}","${s.className}",${s.score},"${stText}","${isWin}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `BaoCao_RungChuongVang_${gameState.roomCode}.csv`;
+      link.click();
+    }
+
+    // Khởi chạy ứng dụng khi tải trang
+    window.addEventListener('DOMContentLoaded', () => {
+      populateMobileStudentDropdown();
+      initRealtimeNetworking();
+      renderAllViews();
+    });
+  </script>
+</body>
+</html>
